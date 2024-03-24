@@ -4,6 +4,9 @@ library(rJava)
 library(tidyverse)
 library(styler)
 library(lintr)
+
+# ---- File - Paths ------------------------------------------------------------
+
 data_path <- "01_Data"
 table_path <- "02_Tables"
 
@@ -16,8 +19,9 @@ data_educ_pov <- extract_tables(file = paste0("./", data_path,"/", "2000 County 
                        pages = c(223:270)
                        )
 
+# ---- Define vectors ----------------------------------------------------------
 
-# Vector of column names for the df of 
+# Vector of column names for the dataframe of Educ & Pov
 column_names <- c("county", "PSE_FALL_1998_99", "PSE_FALL_1994_95", "PSE_1990", 
                   "Educ_Attain1990_NR_>24", "Educ_Attain1990_HS_Perc", 
                   "Educ_Attain1990_BAorGreater", "Median_Inc_1997_USD",
@@ -141,31 +145,40 @@ data_educ_pov_final <- data_educ_pov_final |>
   filter(!str_detect(county, regex("–Con", ignore_case = FALSE))) 
 
 
-## ---- Clean the rest of the variables ----------------------------------------
+# ---- Clean the rest of the variables -----------------------------------------
 
 # General cleaning of all variables except of the first two columns
-# Replacing all footnotes, empty space, incorrect NA (aka X) and unrecognized minus
+# Replacing all footnotes, empty space, incorrect NA (aka X) and unrecognized 
+# minus
 
 data_educ_pov_final <- data_educ_pov_final |>
-    mutate(across(-1:-2, ~str_remove_all(.x, "\\s")),
-           across(-1:-2, ~na_if(.x, "X")),
-           across(-1:-2, ~str_replace_all(.x, "–", "-")),
-           across(-1:-2, ~str_replace_all(.x, "\\(|\\)", NA_character_)))
+    mutate(across(-1:-2, ~str_remove_all(.x, "\\s")))|>
+    mutate(across(-1:-2, ~na_if(.x, "X"))) |>
+    mutate(across(-1:-2, ~str_replace_all(.x, "–", "-"))) |>
+    mutate(across(-1:-2, ~str_replace_all(.x, "\\(|\\)", NA_character_))) |>
+    mutate(across(-c(1:2), ~if_else(.x == "-", NA_character_, .x)))
 
 
 # Substitute elements with footnotes at the beginning of the string, due to
 # incorrect tabulizer scraping
 
-# data_educ_pov_final <- 
-data_educ_pov_final |>
+data_educ_pov_final <-  data_educ_pov_final |>
   mutate(across(c(3:8, 10), ~if_else(county == "Yukon_Koyukuk", str_sub(.x, 2), .x))) |>
-  mutate(across(3:4, ~if_else(county == "Kings", str_sub(.x, 2), .x))) |> View()
+  mutate(across(3:4, ~if_else(county == "Kings", str_sub(.x, 2), .x))) |>
   mutate(across(3:4, ~if_else(county == "Alleghany", str_sub(.x, 2), .x))) |>
   mutate(across(3:4, ~if_else(county == "Bedford", str_sub(.x, 2), .x))) |>
   mutate(across(3:4, ~if_else(county == "Fairfax", str_sub(.x, 2), .x))) |>
   mutate(across(3:4, ~if_else(county == "Greensville", str_sub(.x, 2), .x))) |>
   mutate(across(10,  ~if_else(county == "Halifax", str_sub(.x, 2), .x))) |>
-  mutate(across(10,  ~if_else(county == "James_City", str_sub(.x, 2), .x))) |> View()
+  mutate(across(10,  ~if_else(county == "James_City", str_sub(.x, 2), .x)))
+
+# ---- Format Dataframe and Save as RDS ----------------------------------------
+
+data_educ_pov_final <- data_educ_pov_final |>
+  as_tibble() |> 
+  mutate(across(-1:-2, as.double))
+
+saveRDS(data_educ_pov_final, paste0("./", data_path, "/", "educ_pov_data.rds"))
 
 
          
