@@ -10,24 +10,58 @@ library(lintr)
 data_path <- "01_Data"
 table_path <- "02_Tables"
 
-data_educ_pov <- extract_tables(file = paste0("./", data_path,"/", "2000 County Data Book.pdf"),
-                       output = "data.frame",
-                       area = list(c(107, 27, 632, 592)),
-                       columns = list(c(117, 156, 195, 234, 276, 302, 327, 358,
-                                        388, 414, 453, 488, 527, 553, 579)),
-                       guess = FALSE,
-                       pages = c(223:270)
-                       )
+# ---- Extract Pdf-Tables ------------------------------------------------------
+
+data_educ_pov <- extract_tables(file = paste0("./", data_path,"/", 
+                                              "2000 County Data Book.pdf"),
+                                output = "data.frame",
+                                area = list(c(107, 27, 632, 592)),
+                                columns = list(c(117, 156, 195, 234, 276, 302, 
+                                                 327, 358, 388, 414, 453, 488, 
+                                                 527, 553, 579)),
+                                guess = FALSE,
+                                pages = c(223:270)
+                                )
+
+data_pop      <- extract_tables(file = paste0("./", data_path,"/", 
+                                              "2000 County Data Book.pdf"),
+                                output = "data.frame",
+                                area = list(c(100, 84, 589, 578)),
+                                columns = list(c(164, 199, 240, 262, 290, 332, 354,
+                                                 395, 433, 470, 495, 519, 554)),
+                                guess = FALSE,
+                                pages = c(31:78)
+                                )
+
+# WORKING ON
+data_race <- extract_tables(file = paste0("./", data_path,"/", 
+                                          "2000 County Data Book.pdf"),
+                            output = "data.frame",
+                            area = list(c(100, 84, 589, 578)),
+                            columns = list(c(164, 199, 240, 262, 290, 332, 354,
+                                             395, 433, 470, 495, 519, 554)),
+                            guess = FALSE,
+                            pages = c(31:78)
+)
+
+data_educ
+
 
 # ---- Define vectors ----------------------------------------------------------
 
 # Vector of column names for the dataframe of Educ & Pov
-column_names <- c("county", "PSE_FALL_1998_99", "PSE_FALL_1994_95", "PSE_1990", 
+column_names_educ_pov <- c("county", "PSE_FALL_1998_99", "PSE_FALL_1994_95", "PSE_1990", 
                   "Educ_Attain1990_NR_>24", "Educ_Attain1990_HS_Perc", 
                   "Educ_Attain1990_BAorGreater", "Median_Inc_1997_USD",
                   "Median_Inc_1998_USD", "Median_Inc_DeltaPerc_97_98",
                   "Pov97_Tot", "Pov97_Delta_97_98", "Pov97_<18",
                   "Pov97_Perc_AllAge", "Pov97_Perc_<18")
+
+column_names_pop <- c("county", "land_area_2000", "pop_nr_2000", "pop_rank_2000",
+                      "pop_per_sqm_2000", "pop_nr_1990", "pop_rank_1990",
+                      "pop_nr_1980", "delta_abs_pop_1990_00", "delta_abs_pop_1980_90",
+                      "delta_perc_pop_1990_00", "delta_perc_pop_1980_90",
+                      "hispanic_pop_2000", "hispanic_pop_2000_perc" )
 
 # Vector of names of states in the US
 state_names <- c("ALABAMA", "ALASKA", "ARIZONA", "ARKANSAS", "CALIFORNIA", "COLORADO", 
@@ -76,6 +110,39 @@ for (j in 2:number_of_lists) {
   
 }
   
+#### Function to create data frame
+
+creating_datafram <- function(data, column_names) {
+  number_of_lists <- sum(sapply(data_educ_pov, is.list))
+  
+  # delete empty rows and change column names
+  for (i in 1:number_of_lists) {
+    
+    # delete empty rows, and first united states row
+    data[[i]] <- data[[i]] |>
+      mutate(X = na_if(X, ""),
+             X = na_if(X, "County"),
+             X = na_if(X, "UNITED STATES......")) |>
+      drop_na(X)
+
+    
+    data[[i]] <- data[[i]] |>
+      rename_with(~ column_names, .col = everything() )
+    
+  }
+  
+  data_final <- data[[1]]
+  
+  # creating final dataset over all counties in the US (no data cleaning so far)
+  for (j in 2:number_of_lists) {
+    
+    data[[j]] <- data[[j]] |>
+      as.data.frame()
+    
+    data_final <- bind_rows(data_final, data[[j]])
+    
+  }
+}
 
 
 # ---- Clean County Variable --------------------------------------------------
