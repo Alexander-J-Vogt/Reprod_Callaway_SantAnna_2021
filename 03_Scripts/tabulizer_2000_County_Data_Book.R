@@ -103,35 +103,6 @@ state_names <- c("ALABAMA", "ALASKA", "ARIZONA", "ARKANSAS", "CALIFORNIA", "COLO
                 "Independent_City", "Independent_Cities")
 
 
-# calculate the number of elemtns in list
-number_of_lists <- length(data_educ_pov)
-
-# delete empty rows and change column names
-for (i in 1:number_of_lists) {
-
-  data_educ_pov[[i]] <- data_educ_pov[[i]] |>
-     mutate(X = na_if(X, ""),
-            X = na_if(X, "County"),
-            X = na_if(X, "UNITED STATES......")) |>
-     drop_na(X)
-
-  data_educ_pov[[i]] <- data_educ_pov[[i]] |>
-     rename_with(~ column_names_educ_pov, .col = everything() )
-
-}
-
-data_educ_pov_final <- data_educ_pov[[1]]
-
-# creating final dataset over all counties in the US (no data cleaning so far)
-for (j in 2:number_of_lists) {
-  
-  data_educ_pov[[j]] <- data_educ_pov[[j]] |>
-    as.data.frame()
-  
-  data_educ_pov_final <- bind_rows(data_educ_pov_final, data_educ_pov[[j]])
-  
-}
-
 # ---- Function to create data frame -------------------------------------------
 
 creating_dataframe <- function(data, column_names) {
@@ -162,7 +133,7 @@ creating_dataframe <- function(data, column_names) {
 }
 
 
-identical(test, data_educ_pov_final)
+
 
 
 # ---- Clean County Variable --------------------------------------------------
