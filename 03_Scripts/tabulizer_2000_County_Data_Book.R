@@ -17,6 +17,11 @@ library(tidyverse)
 library(styler)
 library(lintr)
 
+################################################################################
+## 1. Step: Reading in the pdf-tables & Creating a dataframe from the ouput of 
+##          extract_tables (is a list)
+################################################################################
+
 # ---- File - Paths ------------------------------------------------------------
 
 data_path <- "01_Data"
@@ -25,7 +30,7 @@ table_path <- "02_Tables"
 # ---- Extract Pdf-Tables ------------------------------------------------------
 
 # Data on Education and Poverty Information
-data_educ_pov <- extract_tables(file = paste0("./", data_path,"/", 
+extr_educ_pov <- extract_tables(file = paste0("./", data_path,"/", 
                                               "2000 County Data Book.pdf"),
                                 output = "data.frame",
                                 area = list(c(107, 27, 632, 592)),
@@ -36,10 +41,9 @@ data_educ_pov <- extract_tables(file = paste0("./", data_path,"/",
                                 pages = c(223:270)
                                 )
 
-test <- data_educ_pov
 
 # Data on Size of the Population
-data_pop      <- extract_tables(file = paste0("./", data_path,"/", 
+extr_pop      <- extract_tables(file = paste0("./", data_path,"/", 
                                               "2000 County Data Book.pdf"),
                                 output = "data.frame",
                                 area = list(c(100, 84, 589, 578)),
@@ -50,7 +54,7 @@ data_pop      <- extract_tables(file = paste0("./", data_path,"/",
                                 )
 
 # Data on Race and Age Distribution
-data_race     <- extract_tables(file = paste0("./", data_path,"/", 
+extr_race     <- extract_tables(file = paste0("./", data_path,"/", 
                                           "2000 County Data Book.pdf"),
                                output = "data.frame",
                                area = list(c(95, 34, 594, 581)),
@@ -132,15 +136,27 @@ creating_dataframe <- function(data, column_names) {
   return(data_final)
 }
 
+# ---- List to complete data frame ---------------------------------------------
 
+# Dataframe for Educ & Pov
+data_educ_pov <- creating_dataframe(extr_educ_pov, column_names_educ_pov)
+  
+# Dataframe for Population
+data_pop <- creating_dataframe(extr_pop, column_names_pop)
+  
+# Dataframe for Race
+data_race <- creating_dataframe(extr_race, column_names_race)
 
+################################################################################
+# 2. Step: Cleaning the Dataframes
+################################################################################
 
 
 # ---- Clean County Variable --------------------------------------------------
 
 # Clean the county variable in order to be able to create the state variable
 
-data_educ_pov_final <- data_educ_pov_final_fct |>
+data_educ_pov_final <- data_educ_pov |>
   mutate(county = str_replace_all(county, fixed("."), ""), 
          county = str_remove(county, "\\s+$"),
          county = str_replace_all(county, fixed(" "), "_"),
