@@ -1,4 +1,16 @@
-rm(list = ls())
+################################################################################
+## Auhtor: Alexander Vogt
+## Content of the code:
+## The Callaway & Sant'Anna (2021) uses the pre-treatment county information 
+## from the 2000 County Data Book. Unfortunately, the County Data Book is only 
+## available as Pdf. Thus, the goal of this code script is too digitalize the
+## the relevant pre-treatment information on education, poverty, population and
+## race in order to have the relevant information to reproduce Callaway &
+## Sant'Anna (2021).
+################################################################################
+
+
+rm(list = ls(all = TRUE))
 library(tabulizer)
 library(rJava)
 library(tidyverse)
@@ -12,6 +24,7 @@ table_path <- "02_Tables"
 
 # ---- Extract Pdf-Tables ------------------------------------------------------
 
+# Data on Education and Poverty Information
 data_educ_pov <- extract_tables(file = paste0("./", data_path,"/", 
                                               "2000 County Data Book.pdf"),
                                 output = "data.frame",
@@ -23,6 +36,9 @@ data_educ_pov <- extract_tables(file = paste0("./", data_path,"/",
                                 pages = c(223:270)
                                 )
 
+test <- data_educ_pov
+
+# Data on Size of the Population
 data_pop      <- extract_tables(file = paste0("./", data_path,"/", 
                                               "2000 County Data Book.pdf"),
                                 output = "data.frame",
@@ -33,18 +49,17 @@ data_pop      <- extract_tables(file = paste0("./", data_path,"/",
                                 pages = c(31:78)
                                 )
 
-# WORKING ON
-data_race <- extract_tables(file = paste0("./", data_path,"/", 
+# Data on Race and Age Distribution
+data_race     <- extract_tables(file = paste0("./", data_path,"/", 
                                           "2000 County Data Book.pdf"),
-                            output = "data.frame",
-                            area = list(c(100, 84, 589, 578)),
-                            columns = list(c(164, 199, 240, 262, 290, 332, 354,
-                                             395, 433, 470, 495, 519, 554)),
-                            guess = FALSE,
-                            pages = c(31:78)
-)
-
-data_educ
+                               output = "data.frame",
+                               area = list(c(95, 34, 594, 581)),
+                               columns = list(c(117, 138, 158, 178, 198, 218, 238,
+                                               257, 276, 300, 327, 368, 405, 439,
+                                               476, 508, 545, 581)),
+                               guess = FALSE,
+                               pages = c(79:126)
+                               )
 
 
 # ---- Define vectors ----------------------------------------------------------
@@ -57,11 +72,22 @@ column_names_educ_pov <- c("county", "PSE_FALL_1998_99", "PSE_FALL_1994_95", "PS
                   "Pov97_Tot", "Pov97_Delta_97_98", "Pov97_<18",
                   "Pov97_Perc_AllAge", "Pov97_Perc_<18")
 
+# Vector of colum names for the dataframe, which contains information about Pop
 column_names_pop <- c("county", "land_area_2000", "pop_nr_2000", "pop_rank_2000",
                       "pop_per_sqm_2000", "pop_nr_1990", "pop_rank_1990",
                       "pop_nr_1980", "delta_abs_pop_1990_00", "delta_abs_pop_1980_90",
                       "delta_perc_pop_1990_00", "delta_perc_pop_1980_90",
                       "hispanic_pop_2000", "hispanic_pop_2000_perc" )
+
+
+# Vector of colum names for the dataframe, which contains information about Race
+column_names_race <- c("county", "perc_ybelow_5y", "perc_5to17y", "perc_16to24y",
+                       "perc_24to44y", "perc_45to64y", "perc_65to74y",
+                       "perc_75to84y", "perc_above_85y", "median_age", 
+                       "males_per_100_women", "nr_white_2000", "nr_black_2000",
+                       "nr_native_american_2000", "nr_asian_2000", 
+                       "nr_native_hawaiian_2000", "nr_other_race_2000",
+                       "nr_two_or_more_race_2000")
 
 # Vector of names of states in the US
 state_names <- c("ALABAMA", "ALASKA", "ARIZONA", "ARKANSAS", "CALIFORNIA", "COLORADO", 
@@ -78,7 +104,7 @@ state_names <- c("ALABAMA", "ALASKA", "ARIZONA", "ARKANSAS", "CALIFORNIA", "COLO
 
 
 # calculate the number of elemtns in list
-number_of_lists <- sum(sapply(data_educ_pov, is.list))
+number_of_lists <- length(data_educ_pov)
 
 # delete empty rows and change column names
 for (i in 1:number_of_lists) {
@@ -89,12 +115,8 @@ for (i in 1:number_of_lists) {
             X = na_if(X, "UNITED STATES......")) |>
      drop_na(X)
 
-  # if (is.na(data_educ_pov[[1]][1 ,"X.1"])) {
-  #   data_educ_pov[[1]] <- data_educ_pov[[1]] |> select(-X.1)
-  # }
-  
   data_educ_pov[[i]] <- data_educ_pov[[i]] |>
-     rename_with(~ column_names, .col = everything() )
+     rename_with(~ column_names_educ_pov, .col = everything() )
 
 }
 
@@ -109,47 +131,45 @@ for (j in 2:number_of_lists) {
   data_educ_pov_final <- bind_rows(data_educ_pov_final, data_educ_pov[[j]])
   
 }
-  
-#### Function to create data frame
 
-creating_datafram <- function(data, column_names) {
-  number_of_lists <- sum(sapply(data_educ_pov, is.list))
+# ---- Function to create data frame -------------------------------------------
+
+creating_dataframe <- function(data, column_names) {
   
-  # delete empty rows and change column names
+  # Assuming data is a list of data frames
+  number_of_lists <- length(data)
+  
   for (i in 1:number_of_lists) {
     
-    # delete empty rows, and first united states row
-    data[[i]] <- data[[i]] |>
-      mutate(X = na_if(X, ""),
-             X = na_if(X, "County"),
-             X = na_if(X, "UNITED STATES......")) |>
-      drop_na(X)
-
+    # Getting the name of the first column
+    first_col_name <- names(data[[i]])[1]
     
-    data[[i]] <- data[[i]] |>
-      rename_with(~ column_names, .col = everything() )
-    
+    # Process each data frame
+    data[[i]] <- data[[i]] %>%
+      mutate(
+        !!first_col_name := na_if(.data[[first_col_name]], ""),
+        !!first_col_name := na_if(.data[[first_col_name]], "County"),
+        !!first_col_name := na_if(.data[[first_col_name]], "UNITED STATES......")
+      ) %>%
+      drop_na(!!sym(first_col_name)) %>%
+      rename_with(~ column_names, .cols = everything())
   }
   
-  data_final <- data[[1]]
+  # Bind all data frames into a single data frame
+  data_final <- bind_rows(data)
   
-  # creating final dataset over all counties in the US (no data cleaning so far)
-  for (j in 2:number_of_lists) {
-    
-    data[[j]] <- data[[j]] |>
-      as.data.frame()
-    
-    data_final <- bind_rows(data_final, data[[j]])
-    
-  }
+  return(data_final)
 }
+
+
+identical(test, data_educ_pov_final)
 
 
 # ---- Clean County Variable --------------------------------------------------
 
 # Clean the county variable in order to be able to create the state variable
 
-data_educ_pov_final <- data_educ_pov_final |>
+data_educ_pov_final <- data_educ_pov_final_fct |>
   mutate(county = str_replace_all(county, fixed("."), ""), 
          county = str_remove(county, "\\s+$"),
          county = str_replace_all(county, fixed(" "), "_"),
