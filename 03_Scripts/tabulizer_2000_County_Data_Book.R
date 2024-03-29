@@ -9,7 +9,6 @@
 ## Sant'Anna (2021).
 ################################################################################
 
-
 rm(list = ls(all = TRUE))
 library(tabulizer)
 library(rJava)
@@ -198,7 +197,6 @@ data_educ_pov_final <- data_educ_pov_final |>
   filter(!county %in% state_names)
   
 
-
 # Find the counties which names are two rows long in order to delete empty rows
 
 data_educ_pov_final <- data_educ_pov_final |>
@@ -233,11 +231,11 @@ data_educ_pov_final <- data_educ_pov_final |>
 # minus
 
 data_educ_pov_final <- data_educ_pov_final |>
-    mutate(across(-1:-2, ~str_remove_all(.x, "\\s")))|>
-    mutate(across(-1:-2, ~na_if(.x, "X"))) |>
-    mutate(across(-1:-2, ~str_replace_all(.x, "–", "-"))) |>
-    mutate(across(-1:-2, ~str_replace_all(.x, "\\(|\\)", NA_character_))) |>
-    mutate(across(-c(1:2), ~if_else(.x == "-", NA_character_, .x)))
+  mutate(across(-1:-2, ~str_remove_all(.x, "\\s")))|>
+  mutate(across(-1:-2, ~na_if(.x, "X"))) |>
+  mutate(across(-1:-2, ~str_replace_all(.x, "–", "-"))) |>
+  mutate(across(-1:-2, ~str_replace_all(.x, "\\(|\\)", NA_character_))) |>
+  mutate(across(-c(1:2), ~if_else(.x == "-", NA_character_, .x)))
 
 
 # Substitute elements with footnotes at the beginning of the string, due to
@@ -265,6 +263,7 @@ saveRDS(data_educ_pov_final, paste0("./", data_path, "/", "educ_pov_data.rds"))
 # 2.2 Step: Cleaning Education and Poverty Data
 ################################################################################
 
+# ---- Pov Data: Clean county variable and create state variable --------------- 
 
 # Drop NAs in county
 data_pop_final <- data_pop |>
@@ -284,7 +283,7 @@ data_pop_final <- data_pop_final |>
          county = str_remove_all(county, regex("–Con")))
 
 # Filter row with footnote informations
-data_pov_final <- data_pop_final |>
+data_pop_final <- data_pop_final |>
   filter(!str_detect(county, "Processing")) |>
   filter(!str_detect(county, "covered")) |>
   filter(!str_detect(county, "share")) |>
@@ -293,8 +292,7 @@ data_pov_final <- data_pop_final |>
 
 # Create State Variable in order to create a key consisting out of county & state
 
-#data_pov_final <-
-data_pov_final |>
+data_pop_final <- data_pop_final |>
   mutate(state = map_chr(county, ~{
     detected_state <- NA_character_  # Default to NA
     for (state in state_names) {
@@ -304,10 +302,48 @@ data_pov_final |>
       }
     }
     detected_state
-  })) |> 
-  fill(state, .direction = "down") |>
+  })) |>
+  fill(state, .direction = "down") |> 
   mutate(state = str_replace_all(state, "_", " ")) |>
   mutate(state = str_to_title(state)) |>
   mutate(state = str_replace_all(state, " ", "_")) |> 
   mutate(state = str_replace(state, "Independent_Cities", "Independent_City")) |>
-  filter(!county %in% state_names) |> View()
+  filter(!county %in% state_names)
+
+# Find the counties which names are two rows long in order to delete empty rows
+
+data_pop_final <- data_pop_final |>
+  relocate(ncol(data_pop_final), .after = 1) |>
+  # There are two counties name which are written over two rows - Correct this 
+  # By using relative expressions and rename the county to their correct county
+  # names.
+  mutate(county = case_when(
+    # Check if the previous row in 'county' ends with "_"
+    lag(str_ends(county, "_"), default = FALSE) ~ "Prince_of_Wales_Outer_Ketchikan",
+    # Otherwise, keep the original 'county' value
+    TRUE ~ county
+  )) |> 
+  filter(!str_ends(county, "_")) |> 
+  mutate( county = case_when(
+    lag(str_detect(county, "Yellowstone_National"), default = FALSE) ~ "Yellowstone_National_Park",
+    TRUE ~ county
+  )) |> 
+  filter(!county == "Yellowstone_National")
+
+# ---- Pop Data: Clean the rest of the variables -------------------------------
+
+# General cleaning of all variables except of the first two columns
+# Replacing all footnotes, empty space, incorrect NA (aka X) and unrecognized 
+# minus
+
+data_educ_pov_final <- data_educ_pov_final |>
+  mutate(across(-1:-2, ~str_remove_all(.x, "\\s")))|>
+  mutate(across(-1:-2, ~na_if(.x, "X"))) |>
+  mutate(across(-1:-2, ~str_replace_all(.x, "–", "-"))) |>
+  mutate(across(-1:-2, ~str_replace_all(.x, "\\(|\\)", NA_character_))) |>
+  mutate(across(-c(1:2), ~if_else(.x == "-", NA_character_, .x)))
+
+
+
+
+
