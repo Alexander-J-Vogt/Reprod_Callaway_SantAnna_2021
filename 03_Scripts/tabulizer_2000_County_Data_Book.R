@@ -46,7 +46,7 @@ extr_educ_pov <- extract_tables(file = paste0("./", data_path,"/",
 extr_pop      <- extract_tables(file = paste0("./", data_path,"/", 
                                               "2000 County Data Book.pdf"),
                                 output = "data.frame",
-                                area = list(c(100, 84, 589, 578)),
+                                area = list(c(100, 84, 618, 578)),
                                 columns = list(c(164, 199, 240, 262, 290, 332, 354,
                                                  395, 433, 470, 495, 519, 554)),
                                 guess = FALSE,
@@ -57,7 +57,7 @@ extr_pop      <- extract_tables(file = paste0("./", data_path,"/",
 extr_race     <- extract_tables(file = paste0("./", data_path,"/", 
                                           "2000 County Data Book.pdf"),
                                output = "data.frame",
-                               area = list(c(95, 34, 594, 581)),
+                               area = list(c(95, 34, 625, 581)),
                                columns = list(c(117, 138, 158, 178, 198, 218, 238,
                                                257, 276, 300, 327, 368, 405, 439,
                                                476, 508, 545, 581)),
@@ -106,7 +106,9 @@ state_names <- c("ALABAMA", "ALASKA", "ARIZONA", "ARKANSAS", "CALIFORNIA", "COLO
                 "WEST_VIRGINIA", "WISCONSIN", "WYOMING", "DISTRICT_OF_COLUMBIA",
                 "Independent_City", "Independent_Cities")
 
-
+length(extr_educ_pov)
+length(extr_pop)
+length(extr_race)
 # ---- Function to create data frame -------------------------------------------
 
 creating_dataframe <- function(data, column_names) {
@@ -121,12 +123,12 @@ creating_dataframe <- function(data, column_names) {
     
     # Process each data frame
     data[[i]] <- data[[i]] %>%
-      mutate(
-        !!first_col_name := na_if(.data[[first_col_name]], ""),
-        !!first_col_name := na_if(.data[[first_col_name]], "County"),
-        !!first_col_name := na_if(.data[[first_col_name]], "UNITED STATES......")
-      ) %>%
-      drop_na(!!sym(first_col_name)) %>%
+      # mutate(
+      #   !!first_col_name := na_if(.data[[first_col_name]], ""),
+      #   !!first_col_name := na_if(.data[[first_col_name]], "County"),
+      #   !!first_col_name := na_if(.data[[first_col_name]], "UNITED STATES......")
+      # ) %>%
+      # drop_na(!!sym(first_col_name)) %>%
       rename_with(~ column_names, .cols = everything())
   }
   
@@ -147,10 +149,15 @@ data_pop <- creating_dataframe(extr_pop, column_names_pop)
 # Dataframe for Race
 data_race <- creating_dataframe(extr_race, column_names_race)
 
+
+
 ################################################################################
-# 2. Step: Cleaning the Dataframes
+# 2. Step: Cleaning the Data frames
 ################################################################################
 
+################################################################################
+# 2.1 Step: Cleaning Education and Poverty Data
+################################################################################
 
 # ---- Clean County Variable --------------------------------------------------
 
@@ -254,5 +261,53 @@ data_educ_pov_final <- data_educ_pov_final |>
 
 saveRDS(data_educ_pov_final, paste0("./", data_path, "/", "educ_pov_data.rds"))
 
+################################################################################
+# 2.2 Step: Cleaning Education and Poverty Data
+################################################################################
 
-         
+
+# Drop NAs in county
+data_pop_final <- data_pop |>
+  mutate(county = na_if(county, ""),
+         county = str_replace_all(county, "UNITED STATES", NA_character_)) |>
+  drop_na(county)
+
+# Clean county-variable from non-regular signs & non-relevant string patterns
+data_pop_final <- data_pop_final |>
+  mutate(county = str_replace_all(county, fixed("."), ""), 
+         county = str_remove(county, "\\s+$"),
+         county = str_replace_all(county, fixed(" "), "_"),
+         county = str_replace_all(county, fixed("~"), "_"),
+         county = str_replace_all(county, fixed("'"), ""),
+         county = str_replace_all(county, fixed("’"), "")) |>
+  mutate(county = str_remove_all(county, regex("mCon", ignore_case = FALSE)),
+         county = str_remove_all(county, regex("–Con")))
+
+# Filter row with footnote informations
+data_pov_final <- data_pop_final |>
+  filter(!str_detect(county, "Processing")) |>
+  filter(!str_detect(county, "covered")) |>
+  filter(!str_detect(county, "share")) |>
+  filter(!str_detect(county, "legally")) |>
+  filter(!str_detect(county, "Census")) 
+
+# Create State Variable in order to create a key consisting out of county & state
+
+#data_pov_final <-
+data_pov_final |>
+  mutate(state = map_chr(county, ~{
+    detected_state <- NA_character_  # Default to NA
+    for (state in state_names) {
+      if (str_detect(.x, state)) {
+        detected_state <- state
+        break  # Stop at the first match
+      }
+    }
+    detected_state
+  })) |> 
+  fill(state, .direction = "down") |>
+  mutate(state = str_replace_all(state, "_", " ")) |>
+  mutate(state = str_to_title(state)) |>
+  mutate(state = str_replace_all(state, " ", "_")) |> 
+  mutate(state = str_replace(state, "Independent_Cities", "Independent_City")) |>
+  filter(!county %in% state_names) |> View()
