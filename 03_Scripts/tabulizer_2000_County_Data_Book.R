@@ -312,7 +312,6 @@ data_pop_final <- data_pop_final |>
   filter(!county %in% state_names)
 
 # Find the counties which names are two rows long in order to delete empty rows
-
 data_pop_final <- data_pop_final |>
   relocate(ncol(data_pop_final), .after = 1) |>
   # There are two counties name which are written over two rows - Correct this 
@@ -337,14 +336,177 @@ data_pop_final <- data_pop_final |>
 # Replacing all footnotes, empty space, incorrect NA (aka X) and unrecognized 
 # minus
 
-data_educ_pov_final <- data_educ_pov_final |>
-  mutate(across(-1:-2, ~str_remove_all(.x, "\\s")))|>
-  mutate(across(-1:-2, ~na_if(.x, "X"))) |>
-  mutate(across(-1:-2, ~str_replace_all(.x, "–", "-"))) |>
-  mutate(across(-1:-2, ~str_replace_all(.x, "\\(|\\)", NA_character_))) |>
-  mutate(across(-c(1:2), ~if_else(.x == "-", NA_character_, .x)))
+data_pop_final <- data_pop_final |>
+  mutate(across(-1:-2,   ~str_remove_all(.x, "\\s")))|>
+  mutate(across(-1:-2,   ~na_if(.x, "X"))) |>
+  mutate(across(-1:-2,   ~str_replace_all(.x, "–", "-"))) |>
+  mutate(across(-1:-2,   ~str_replace_all(.x, "\\(|\\)", NA_character_))) |>
+  mutate(across(-c(1:2), ~if_else(.x == "-", NA_character_, .x))) |>
+  mutate(across(-c(1:2), ~na_if(.x, "NA")))
+
+# ---- Pop Data: Transfrom to tibble and save as .rds
+find_mistake <- data_pop_final
+
+## Warning: There exist some numbers, which were turned to NAs. CHECK LATER.
+data_pop_final <- find_mistake |>
+  as_tibble() |> 
+  mutate(across(-c(1:2), as.double))
+
+saveRDS(data_pop_final, paste0("./", data_path, "/", "pop_data.rds"))
 
 
+################################################################################
+# 2.3 Step: Cleaning Population by Race Data
+################################################################################
+
+# ---- Pop by Race Data: Clean county variable and create state variable ---------------
+
+# Drop NAs in county
+data_race_final <- data_race |>
+  mutate(county = na_if(county, ""),
+         county = str_replace_all(county, "UNITED STATES", NA_character_)) |>
+  drop_na(county)
 
 
+# Clean county-variable from non-regular signs & non-relevant string patterns
+data_race_final <- data_race_final |>
+  mutate(county = str_replace_all(county, fixed("."), ""), 
+         county = str_remove(county, "\\s+$"),
+         county = str_replace_all(county, fixed(" "), "_"),
+         county = str_replace_all(county, fixed("~"), "_"),
+         county = str_replace_all(county, fixed("'"), ""),
+         county = str_replace_all(county, fixed("’"), "")) |>
+  mutate(county = str_remove_all(county, regex("mCon", ignore_case = FALSE)),
+         county = str_remove_all(county, regex("–Con")))
 
+# Filter row with footnote informations
+data_race_final <- data_race_final |>
+  filter(!str_detect(county, "Includes")) |> 
+  filter(!str_detect(county, "combinations")) |> 
+  filter(!str_detect(county, "Source")) |>
+  filter(!str_detect(county, "published"))
+
+# Create State Variable in order to create a key consisting out of county & state
+data_race_final <- data_race_final |>
+  mutate(state = map_chr(county, ~{
+    detected_state <- NA_character_  # Default to NA
+    for (state in state_names) {
+      if (str_detect(.x, state)) {
+        detected_state <- state
+        break  # Stop at the first match
+      }
+    }
+    detected_state
+  })) |> 
+  fill(state, .direction = "down") |> 
+  mutate(state = str_replace_all(state, "_", " ")) |>
+  mutate(state = str_to_title(state)) |>
+  mutate(state = str_replace_all(state, " ", "_")) |> 
+  mutate(state = str_replace(state, "Independent_Cities", "Independent_City")) |> 
+  filter(!county %in% state_names)
+
+
+# Find the counties which names are two rows long in order to delete empty rows
+data_race_final <- data_race_final |>
+  relocate(ncol(data_race_final), .after = 1) |>
+  mutate(county = case_when(
+    lag(str_ends(county, "_"), default = FALSE) ~ "Prince_of_Wales_Outer_Ketchikan",
+    TRUE ~ county
+  )) |> 
+  filter(!str_ends(county, "_")) |> 
+  mutate(county = case_when(
+    lag(str_detect(county, "Yellowstone_National"), default = FALSE) ~ "Yellowstone_National_Park",
+    TRUE ~ county
+  )) |> 
+  filter(!county == "Yellowstone_National")
+
+# ---- Pop by Race Data: Clean the rest of the variables -------------------------------
+
+# General cleaning of all variables except of the first two columns
+# Replacing all footnotes, empty space, incorrect NA (aka X) and unrecognized 
+# minus
+
+data_race_final <- data_race_final |>
+  mutate(across(-c(1:2),   ~str_remove_all(.x, "\\s")))|>
+  mutate(across(-c(1:2),   ~na_if(.x, "X"))) |>
+  mutate(across(-c(1:2),   ~str_replace_all(.x, "–", "-"))) |>
+  mutate(across(-c(1:2),   ~str_replace_all(.x, "\\(|\\)", NA_character_))) |>
+  mutate(across(-c(1:2),   ~if_else(.x == "-", NA_character_, .x))) |>
+  mutate(across(-c(1:2),   ~na_if(.x, "NA")))
+
+# ---- Pop by Race Data: Transfrom to tibble and save as .rds
+
+data_race_final <- data_race_final |>
+  as_tibble() |> 
+  mutate(across(-c(1:2), as.double))
+
+
+saveRDS(data_race_final, paste0("./", data_path, "/", "pop_by_data.rds"))
+
+################################################################################
+# 2.4 Step: Create Master-Dataset
+################################################################################
+
+# ---- Create a Master Dataset -------------------------------------------------
+
+master_data_2000_county_data_book <- data_educ_pov_final |>
+  left_join(data_pop_final, by = c("county", "state")) |>
+  left_join(data_race_final, by = c("county", "state")) |>
+  arrange(state, county)
+
+saveRDS(master_data_2000_county_data_book,  
+        paste0("./", data_path, "/", "pop_by_data.rds"))
+
+
+################################################################################
+################################# END ##########################################
+################################################################################
+
+# ---- Appendix Code: Check if the key variables are identical -----------------
+
+# Extract key variables and combine in one dataset
+key_educ_pov <- data_educ_pov_final |>
+  select(1:2) |> 
+  rename(county_educ = county,
+         state_educ = state) |>
+  arrange(state_educ, county_educ)
+
+key_pop <- data_pop_final |>
+  select(1:2) |>
+  rename(county_pop = county,
+         state_pop = state) |>
+  arrange(state_pop, county_pop)
+
+key_race <- data_race_final |>
+  select(1:2) |>
+  rename(county_race = county,
+         state_race = state) |>
+  arrange(state_race, county_race)
+
+key_var <- cbind(key_pop, key_educ_pov, key_race)
+
+# Function to compare whether elements are identical
+compare_rows <- function(row_educ, row_pop) {
+  # Check if all elements in the row are the same
+  if (identical(row_educ, row_pop)) {
+    return(1)
+  } else {
+    return(0)
+  }
+}
+
+# Apply the comparison for each row to educational and population data: IDENTICAL
+check_county <- pmap_int(list(key_var$county_educ, key_var$county_pop), 
+                         function(...) { compare_rows(...) }
+                         )
+
+# Apply the comparison for each row to educational and population by race data: 
+# IDENTICAL
+check_county_race <- pmap_int(list(key_var$county_educ, key_var$county_race), 
+                              function(...){ compare_rows(...) }
+                              )
+
+# Length equals 3142, which equals the number of county according to the
+# 2000 county data book
+length(check_county)
+length(check_county_race)
