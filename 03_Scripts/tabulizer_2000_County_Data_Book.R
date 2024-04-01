@@ -55,14 +55,14 @@ extr_pop      <- extract_tables(file = paste0("./", data_path,"/",
 # Data on Race and Age Distribution
 extr_race     <- extract_tables(file = paste0("./", data_path,"/", 
                                           "2000 County Data Book.pdf"),
-                               output = "data.frame",
-                               area = list(c(95, 34, 625, 581)),
-                               columns = list(c(117, 138, 158, 178, 198, 218, 238,
-                                               257, 276, 300, 327, 368, 405, 439,
-                                               476, 508, 545, 581)),
-                               guess = FALSE,
-                               pages = c(79:126)
-                               )
+                                output = "data.frame",
+                                area = list(c(95, 34, 625, 581)),
+                                columns = list(c(117, 138, 158, 178, 198, 218, 238,
+                                                 257, 276, 300, 327, 368, 405, 439,
+                                                 476, 508, 545, 581)),
+                                guess = FALSE,
+                                pages = c(79:126)
+                                )
 
 
 # ---- Define vectors ----------------------------------------------------------
@@ -105,9 +105,6 @@ state_names <- c("ALABAMA", "ALASKA", "ARIZONA", "ARKANSAS", "CALIFORNIA", "COLO
                 "WEST_VIRGINIA", "WISCONSIN", "WYOMING", "DISTRICT_OF_COLUMBIA",
                 "Independent_City", "Independent_Cities")
 
-length(extr_educ_pov)
-length(extr_pop)
-length(extr_race)
 # ---- Function to create data frame -------------------------------------------
 
 creating_dataframe <- function(data, column_names) {
@@ -160,9 +157,13 @@ data_race <- creating_dataframe(extr_race, column_names_race)
 
 # ---- Clean County Variable --------------------------------------------------
 
-# Clean the county variable in order to be able to create the state variable
-
 data_educ_pov_final <- data_educ_pov |>
+  mutate(county = na_if(county, ""),
+         county = str_replace_all(county, "UNITED STATES", NA_character_)) |>
+  drop_na(county)
+
+# Clean the county variable in order to be able to create the state variable
+data_educ_pov_final <- data_educ_pov_final |>
   mutate(county = str_replace_all(county, fixed("."), ""), 
          county = str_remove(county, "\\s+$"),
          county = str_replace_all(county, fixed(" "), "_"),
