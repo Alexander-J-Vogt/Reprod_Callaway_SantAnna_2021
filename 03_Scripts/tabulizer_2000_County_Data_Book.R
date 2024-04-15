@@ -105,6 +105,18 @@ state_names <- c("ALABAMA", "ALASKA", "ARIZONA", "ARKANSAS", "CALIFORNIA", "COLO
                 "WEST_VIRGINIA", "WISCONSIN", "WYOMING", "DISTRICT_OF_COLUMBIA",
                 "Independent_City", "Independent_Cities")
 
+vector_pop_fn7_IC <- c("Buena_Vista", "Danville", "Emporia", "Fairfax", "Franklin",
+                    "Fredericksburg", "Harrisonburg", "Manassas", "Staunton",
+                    "Waynesboro", "Williamsburg")
+ 
+df_pop_fn7_IC <- data.frame(county = vector_pop_fn7_IC, states = "Independent_City")
+
+vector_pop_fn7_Virginia <- c("Greensville", "Halifax", "Fairfax", "Augusta",
+                             "James_City", "Montgomery", "Prince_William",
+                             "Southampton", "Spotsylvania")
+
+df_pop_fn7_Virginia <- data.frame(county = vector_pop_fn7_Virginia, states = "Virigina")
+
 # ---- Function to create data frame -------------------------------------------
 
 creating_dataframe <- function(data, column_names) {
@@ -183,7 +195,7 @@ data_educ_pov_final <- data_educ_pov_final |>
   mutate(state = map_chr(county, ~{
     detected_state <- NA_character_  # Default to NA
     for (state in state_names) {
-      if (str_detect(.x, state)) {
+      if (.x == state) {
         detected_state <- state
         break  # Stop at the first match
       }
@@ -297,13 +309,13 @@ data_pop_final <- data_pop_final |>
   mutate(state = map_chr(county, ~{
     detected_state <- NA_character_  # Default to NA
     for (state in state_names) {
-      if (str_detect(.x, state)) {
+      if (.x == state) {
         detected_state <- state
         break  # Stop at the first match
       }
     }
     detected_state
-  })) |>
+  })) |> 
   fill(state, .direction = "down") |> 
   mutate(state = str_replace_all(state, "_", " ")) |>
   mutate(state = str_to_title(state)) |>
@@ -344,12 +356,25 @@ data_pop_final <- data_pop_final |>
   mutate(across(-c(1:2), ~if_else(.x == "-", NA_character_, .x))) |>
   mutate(across(-c(1:2), ~na_if(.x, "NA")))
 
+# Addressing further issues, which lead to unexpected NAs when converting 
+# string to double
+
+data_pop_final <- data_pop_final |> 
+   mutate(across(-c(1:2), ~str_replace_all(.x, "Z", NA_character_)))
+
+# Cleaning variables from footnotes in the tables
+# i. Footnote 7 (as displayed in the table)
+data_pop_final |>
+  mutate(across(c(9, 11, 13), ~if_else((county %in% df_pop_fn7_IC$county) & (state == "Virginia"), str_sub(.x, 2), .x))) |> View()
+
 # ---- Pop Data: Transfrom to tibble and save as .rds
 find_mistake <- data_pop_final
 
 ## Warning: There exist some numbers, which were turned to NAs. CHECK LATER.
 data_pop_final <- find_mistake |>
   as_tibble() |> 
+  mutate(across(3:13, as.double)) |>
+  filter(is.na(delta_abs_pop_1980_00))
   mutate(across(-c(1:2), as.double))
 
 saveRDS(data_pop_final, paste0("./", data_path, "/", "pop_data.rds"))
@@ -391,7 +416,7 @@ data_race_final <- data_race_final |>
   mutate(state = map_chr(county, ~{
     detected_state <- NA_character_  # Default to NA
     for (state in state_names) {
-      if (str_detect(.x, state)) {
+      if (.x == state) {
         detected_state <- state
         break  # Stop at the first match
       }
