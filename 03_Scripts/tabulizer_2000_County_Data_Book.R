@@ -264,13 +264,20 @@ data_educ_pov_final <- data_educ_pov_final |>
 
 data_educ_pov_final <-  data_educ_pov_final |>
   mutate(across(c(3:8, 10), ~if_else(county == "Yukon_Koyukuk", str_sub(.x, 2), .x))) |>
-  mutate(across(3:4, ~if_else(county == "Kings", str_sub(.x, 2), .x))) |>
-  mutate(across(3:4, ~if_else(county == "Alleghany", str_sub(.x, 2), .x))) |>
-  mutate(across(3:4, ~if_else(county == "Bedford", str_sub(.x, 2), .x))) |>
-  mutate(across(3:4, ~if_else(county == "Fairfax", str_sub(.x, 2), .x))) |>
-  mutate(across(3:4, ~if_else(county == "Greensville", str_sub(.x, 2), .x))) |>
-  mutate(across(10,  ~if_else(county == "Halifax", str_sub(.x, 2), .x))) |>
-  mutate(across(10,  ~if_else(county == "James_City", str_sub(.x, 2), .x)))
+  mutate(across(3:4, ~if_else((county == "Kings") & 
+                              (state == "New_York"), str_sub(.x, 2), .x))) |>
+  mutate(across(3:4, ~if_else((county == "Alleghany") & 
+                              (state == "Virginia"), str_sub(.x, 2), .x))) |>
+  mutate(across(3:4, ~if_else((county == "Bedford") &
+                              (state == "Virginia"), str_sub(.x, 2), .x))) |>
+  mutate(across(3:4, ~if_else((county == "Fairfax") & 
+                              (state == "Virginia"), str_sub(.x, 2), .x))) |>
+  mutate(across(3:4, ~if_else((county == "Greensville") &
+                              (state == "Virginia"), str_sub(.x, 2), .x))) |>
+  mutate(across(10,  ~if_else((county == "Halifax") &
+                               (state == "Virginia"), str_sub(.x, 2), .x))) |>
+  mutate(across(c(3, 4, 10),  ~if_else((county == "James_City") &
+                                       (state == "Virginia"), str_sub(.x, 2), .x)))
 
 # ---- Format Dataframe and Save as RDS ----------------------------------------
 
@@ -383,11 +390,11 @@ data_pop_final <- data_pop_final |>
                                        (state == "Virginia"),
                                         str_sub(.x, 2), .x))) |> 
   mutate(across(c(9, 11, 13), ~if_else((county %in% c("La_Paz", "Yuma")) &
-                                        (state == "Arizona"),
-                                         str_sub(.x, 2), .x))) |>
+                                       (state == "Arizona"),
+                                        str_sub(.x, 2), .x))) |>
   mutate(across(c(9, 11, 13), ~if_else((county %in% c("Cibola", "Valencia")) &
-                                        (state == "New_Mexico"),
-                                         str_sub(.x, 2), .x)))
+                                       (state == "New_Mexico"),
+                                        str_sub(.x, 2), .x)))
 
 # ii. Footnote 8 (as displayed in the table)
 
