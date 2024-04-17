@@ -107,21 +107,21 @@ state_names <- c("ALABAMA", "ALASKA", "ARIZONA", "ARKANSAS", "CALIFORNIA", "COLO
 
 # ---- Vectors & Data Frames for filtering footnotes ---------------------------
 
+# Independent City
 vector_pop_fn7_IC <- c("Buena_Vista", "Danville", "Emporia", "Fairfax", "Franklin",
                     "Fredericksburg", "Harrisonburg", "Manassas", "Radford", "Staunton",
                     "Waynesboro", "Williamsburg")
- 
+
 df_pop_fn7_IC <- data.frame(county = vector_pop_fn7_IC, states = "Independent_City")
 
+# Virginia
 vector_pop_fn7_Virginia <- c("Greensville", "Fairfax", "Augusta",
                              "James_City", "Montgomery", "Prince_William",
-                             "Southampton", "Spotsylvania")
-
+                             "Southampton", "Spotsylvania") 
 df_pop_fn7_Virginia <- data.frame(county = vector_pop_fn7_Virginia, states = "Virigina")
 
-vector_pop_fn7_Alaska <- c("Aleutians_West", "Aleutians_East", "Dillingham", "Lake_and_Peninsula",
-                       "La_Paz", "Yuma")
-
+# Alaska
+vector_pop_fn7_Alaska <- c("Aleutians_West", "Aleutians_East", "Dillingham", "Lake_and_Peninsula")
 df_pop_fn7_Alaska <- data.frame(county = vector_pop_fn7_Alaska, state = "Alaska")
 
 
@@ -372,17 +372,36 @@ data_pop_final <- data_pop_final |>
 
 # Cleaning variables from footnotes in the tables
 # i. Footnote 7 (as displayed in the table)
-data_pop_final |>
-  mutate(across(c(9, 11, 13), ~if_else((county %in% df_pop_fn7_IC$county) & (state == "Virginia"), str_sub(.x, 2), .x))) |> View()
+data_pop_final <- data_pop_final |>
+  mutate(across(c(9, 11, 13), ~if_else((county %in% df_pop_fn7_IC$county) & 
+                                       (state == "Independent_City"), 
+                                        str_sub(.x, 2), .x))) |> 
+  mutate(across(c(9, 11, 13), ~if_else((county %in% df_pop_fn7_Alaska$county) &
+                                       (state == "Alaska"),
+                                        str_sub(.x, 2), .x))) |>
+  mutate(across(c(9, 11, 13), ~if_else((county %in% df_pop_fn7_Virginia$county) &
+                                       (state == "Virginia"),
+                                        str_sub(.x, 2), .x))) |> 
+  mutate(across(c(9, 11, 13), ~if_else((county %in% c("La_Paz", "Yuma")) &
+                                        (state == "Arizona"),
+                                         str_sub(.x, 2), .x))) |>
+  mutate(across(c(9, 11, 13), ~if_else((county %in% c("Cibola", "Valencia")) &
+                                        (state == "New_Mexico"),
+                                         str_sub(.x, 2), .x)))
+
+# ii. Footnote 8 (as displayed in the table)
+
+data_pop_final <- data_pop_final |>
+  mutate(pop_nr_1980 = if_else((county == "Yukon_Koyukuk") & (state == "Alaska"), 
+                                str_sub(pop_nr_1980, 2), pop_nr_1980)) 
 
 # ---- Pop Data: Transfrom to tibble and save as .rds
-find_mistake <- data_pop_final
+# find_mistake <- data_pop_final
 
 ## Warning: There exist some numbers, which were turned to NAs. CHECK LATER.
-data_pop_final <- find_mistake |>
+data_pop_final <- data_pop_final |>
   as_tibble() |> 
-  mutate(across(3:13, as.double)) |>
-  filter(is.na(delta_abs_pop_1980_00))
+  mutate(across(3:13, as.double))
   mutate(across(-c(1:2), as.double))
 
 saveRDS(data_pop_final, paste0("./", data_path, "/", "pop_data.rds"))
