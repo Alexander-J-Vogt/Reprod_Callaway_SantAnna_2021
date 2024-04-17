@@ -105,17 +105,25 @@ state_names <- c("ALABAMA", "ALASKA", "ARIZONA", "ARKANSAS", "CALIFORNIA", "COLO
                 "WEST_VIRGINIA", "WISCONSIN", "WYOMING", "DISTRICT_OF_COLUMBIA",
                 "Independent_City", "Independent_Cities")
 
+# ---- Vectors & Data Frames for filtering footnotes ---------------------------
+
 vector_pop_fn7_IC <- c("Buena_Vista", "Danville", "Emporia", "Fairfax", "Franklin",
-                    "Fredericksburg", "Harrisonburg", "Manassas", "Staunton",
+                    "Fredericksburg", "Harrisonburg", "Manassas", "Radford", "Staunton",
                     "Waynesboro", "Williamsburg")
  
 df_pop_fn7_IC <- data.frame(county = vector_pop_fn7_IC, states = "Independent_City")
 
-vector_pop_fn7_Virginia <- c("Greensville", "Halifax", "Fairfax", "Augusta",
+vector_pop_fn7_Virginia <- c("Greensville", "Fairfax", "Augusta",
                              "James_City", "Montgomery", "Prince_William",
                              "Southampton", "Spotsylvania")
 
 df_pop_fn7_Virginia <- data.frame(county = vector_pop_fn7_Virginia, states = "Virigina")
+
+vector_pop_fn7_Alaska <- c("Aleutians_West", "Aleutians_East", "Dillingham", "Lake_and_Peninsula",
+                       "La_Paz", "Yuma")
+
+df_pop_fn7_Alaska <- data.frame(county = vector_pop_fn7_Alaska, state = "Alaska")
+
 
 # ---- Function to create data frame -------------------------------------------
 
