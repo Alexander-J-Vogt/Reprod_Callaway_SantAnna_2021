@@ -409,7 +409,7 @@ data_pop_final <- data_pop_final |>
 data_pop_final <- data_pop_final |>
   as_tibble() |> 
   mutate(across(3:13, as.double))
-  mutate(across(-c(1:2), as.double))
+
 
 saveRDS(data_pop_final, paste0("./", data_path, "/", "pop_data.rds"))
 
@@ -508,13 +508,34 @@ saveRDS(data_race_final, paste0("./", data_path, "/", "pop_by_data.rds"))
 
 # ---- Create a Master Dataset -------------------------------------------------
 
+# Full Join of all datasets
 master_data_2000_county_data_book <- data_educ_pov_final |>
   left_join(data_pop_final, by = c("county", "state")) |>
   left_join(data_race_final, by = c("county", "state")) |>
   arrange(state, county)
 
+# Create state abbrevation variable
+state_abbreviations <- c(
+  Alabama = "AL", Alaska = "AK", Arizona = "AZ", Arkansas = "AR", California = "CA", 
+  Colorado = "CO", Connecticut = "CT", Delaware = "DE", Florida = "FL", Georgia = "GA", 
+  Hawaii = "HI", Idaho = "ID", Illinois = "IL", Indiana = "IN", Iowa = "IA", 
+  Kansas = "KS", Kentucky = "KY", Louisiana = "LA", Maine = "ME", Maryland = "MD", 
+  Massachusetts = "MA", Michigan = "MI", Minnesota = "MN", Mississippi = "MS", 
+  Missouri = "MO", Montana = "MT", Nebraska = "NE", Nevada = "NV", New_Hampshire = "NH", 
+  New_Jersey = "NJ", New_Mexico = "NM", New_York = "NY", North_Carolina = "NC", 
+  North_Dakota = "ND", Ohio = "OH", Oklahoma = "OK", Oregon = "OR", Pennsylvania = "PA", 
+  Rhode_Island = "RI", South_Carolina = "SC", South_Dakota = "SD", Tennessee = "TN", 
+  Texas = "TX", Utah = "UT", Vermont = "VT", Virginia = "VA", Washington = "WA", 
+  West_Virginia = "WV", Wisconsin = "WI", Wyoming = "WY", District_Of_Columbia = "DC", 
+  Independent_City = "IC"
+)
+
+master_data_2000_county_data_book <- master_data_2000_county_data_book |>
+  mutate(state_abbrev = state_abbreviations[state]) 
+
+
 saveRDS(master_data_2000_county_data_book,  
-        paste0("./", data_path, "/", "pop_by_data.rds"))
+        paste0("./", data_path, "/", "county_data_book_2000.rds"))
 
 
 ################################################################################
