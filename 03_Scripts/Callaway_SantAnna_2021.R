@@ -35,7 +35,7 @@ region_abbreviations <- c(
 
 
 # Data Cleaning - Firms with all private ownership
-
+# Selecting the relevant variables & restrict the dataset on teenagers 
 qwi_po <- qwi_po_raw |> 
   select(geography, geography_label.value, agegrp, agegrp_label.value, 
          year, quarter, Emp, EmpEnd, EmpS, EmpSpv, EmpTotal, sEmp, sEmpEnd,
@@ -63,11 +63,17 @@ qwi_po <- qwi_po |>
   relocate(region, .after = state)
 
 # Create Year-Indicator of Treatment
-qwi_Emp <- qwi_po |>
+qwi_po <- qwi_po |>
   mutate(treat_g2004 = ifelse(state == "IL", 1, 0),
          treat_g2006 = ifelse(state %in% c("FL", "MN", "WI"), 1, 0),
          treat_g2007 = ifelse(state %in% c("CO", "MD", "MI", "MO", "MT", "NV" ,
                                            "NC", "OH", "WV" ), 1, 0))
+
+qwi_po |>
+  filter(sEmp == 5) |>
+  distinct(Emp)
+
+
 
 
 
