@@ -13,7 +13,7 @@ qwi_po_raw <- read_csv(paste0("./", data_path, "/", "qwi_all_privatownership.csv
 # Import the cleaned "2000 County Data Book" dataset
 cdb_2000 <- read_rds(paste0("./", data_path, "/", "county_data_book_2000.rds"))
 
-# Identification of Region and State accroding to US Bureau of Labor Statistics
+# Identification of Region and State according to US Bureau of Labor Statistics
 region_abbreviations <- c(
   AL = "South", AK = "West", AZ = "West", AR = "South", 
   CA = "West", CO = "West", CT = "Northeast", 
@@ -98,19 +98,28 @@ qwi_po <- qwi_po |>
                                            "NC", "OH", "WV" ), 1, 0))
 
 # Filter for all relevant states and create a region indicator 
-qwi_restricted <- qwi_po |> 
+# qwi_restricted <- 
+qwi_po |> 
   filter(!state %in% c("AL", "AK", "AZ", "AR", "CA", "CT", "DE", "HI", "KY", 
                        "ME", "MA", "MS", "NH", "NJ", "NY", "OR", "PA", "RI",
                        "VT", "WA", "WY", "DC", "PR")) |>
   mutate(region = region_abbreviations[state]) |>
-  relocate(region, .after = state)
+  relocate(region, .after = state) |>
+  filter((date_q >= "2003-04-01") & (date_q <= "2007-01-01")) |>
+  left_join(cdb_2000_restricted, by = c("state", "county")) |>
+  filter(!(is.na(pop_nr_2000) & is.na(nr_white_2000) & is.na(Median_Inc_1997_USD) & 
+           is.na(HS_1990_perc) & is.na(poverty_allages_1997_perc) &
+           is.na(white_pop_2000_perc) & is.na(pop_2000_nr_1000s) & 
+           is.na(median_income_1997_1000s)) == 8) |>
+  distinct(state, county)
 
 # qwi_matched 
-# qwi_po_matched <- 
-qwi_po |>
-  full_join(cdb_2000_restricted, by = c("state", "county")) |> #View()
-  filter(date_q == "2001-01-01") |>
-  distinct(county, state)
+ qwi_restricted |>
+  left_join(cdb_2000_restricted, by = c("state", "county")) |> 
+  filter((date_q >= "2003-04-01") & (date_q <= "2007-01-01")) |>
+  filter(!is.na(Emp)) |>
+  distinct(county, state) |>
+  nrow() 
 
 return(qwi_po_matched)
 
