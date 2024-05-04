@@ -40,7 +40,7 @@ above_fed_mw <- c("AK", "CT", "HI", "MA", "OR", "VT")
 
 # Select the relevant pre-treatment county characteristics
 
-cdb_2000_restricted <- cdb_2000 |> 
+cdb_2000_restricted <- cdb_2000 |>
   select(county,
          state,
          state_abbrev,
@@ -58,8 +58,8 @@ cdb_2000_restricted <- cdb_2000 |>
          state_name = state,
          state = state_abbrev) |>
   relocate(state, .after = county) |>
-  arrange(state, county) |>
-  mutate(county = str_to_lower(county))
+  arrange(state, county) |> 
+  mutate(county = str_to_lower(county)) 
 
 # Restrict the data set according to the procedure of Callaway & Sant'Anna (2021)
 # Described in the Supplementary Appendix
@@ -77,7 +77,7 @@ qwi_po <- qwi_po_raw |>
 
 
 # Create Key Variables for clear identification: county, state and year
-qwi_po <- qwi_po |> 
+qwi_po <-  qwi_po |>
   separate(col = geography_label, into = c("county", "state"), sep = ",", remove = TRUE, fill = "right", extra = "drop") |>
   mutate(state = str_trim(state, side = "both"),
          county = str_replace_all(county, " ", "_"),
@@ -88,7 +88,7 @@ qwi_po <- qwi_po |>
   select(-c("geography", "agegrp", "agegrp_label")) |>
   filter(!state %in% c("DC", "PR")) |>
   arrange(state, county) |>
-  mutate(county = str_replace_all(county, "-", "_")) |>
+  mutate(county = str_replace_all(county, "-", "_")) |> 
   mutate(county = str_to_lower(county))
 
 
@@ -103,15 +103,20 @@ qwi_po <- qwi_po |>
                                                  "NC", "OH", "WV" ), 1, 0))
 
 # Filter for all relevant states and create a region indicator 
-# qwi_restricted <-
-qwi_po |>
+qwi_restricted <- qwi_po |>
   filter(!state %in% c("AL", "AK", "AZ", "AR", "CA", "CT", "DE", "HI", "KY", 
                        "ME", "MA", "MS", "NH", "NJ", "NY", "OR", "PA", "RI",
-                       "VT", "WA", "WY", "DC", "PR")) |>
+                       "VT", "WA", "WY", "DC", "PR")) |> 
   mutate(region = region_abbreviations[state]) |>
   relocate(region, .after = state) |>
-  filter((date_q >= "2003-04-01") & (date_q <= "2007-01-01")) |>
-  left_join(cdb_2000_restricted, by = c("state", "county")) |>
+  group_by(county) |>
+  filter(!any(is.na(Emp))) |>
+  ungroup()
+  distinct(state, county)
+  # mutate(EmpEnd_dist = ifelse(is.na(EmpEnd), 1, 0),
+  #        Emp_dist = ifelse(is.na(Emp), 1, 0)) |>
+  #filter((date_q >= "2003-04-01") & (date_q <= "2007-01-01")) |>
+  left_join(cdb_2000_restricted, by = c("state", "county")) |> distinct(state, county)
   filter(!(is.na(pop_nr_2000) & 
            is.na(nr_white_2000) & 
            is.na(Median_Inc_1997_USD) & 
@@ -119,10 +124,11 @@ qwi_po |>
            is.na(poverty_allages_1997_perc) &
            is.na(white_pop_2000_perc) & 
            is.na(pop_2000_nr_1000s) & 
-           is.na(median_income_1997_1000s))) |>
-  filter(!is.na(Emp)) |> #(Continue check for the right amount of counties)
-  distinct(state, county) 
+           is.na(median_income_1997_1000s))) |> distinct(state, county) |> View()
+  filter(is.na(Emp)) |>  #(Continue check for the right amount of counties)
+  table(sEmp) 
 
+  left_join(cdb_2000_restricted, by = c("state", "county")) |> distinct(state, county)
 
 # qwi_matched 
  qwi_restricted |>
