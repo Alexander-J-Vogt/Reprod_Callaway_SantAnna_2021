@@ -67,25 +67,27 @@ cdb_2000_restricted <- cdb_2000 |>
 
 # Data Cleaning - Firms with all private ownership
 # Selecting the relevant variables & restrict the dataset on teenagers 
-qwi_po <- qwi_po_raw |> 
+qwi_po <- qwi_po_raw |>
   select(geography, geography_label.value, agegrp, agegrp_label.value, 
          year, quarter, Emp, EmpEnd, EmpS, EmpSpv, EmpTotal, sEmp, sEmpEnd,
          sEmpS, sEmpSpv, sEmpTotal) |> 
   rename(geography_label = geography_label.value,
-         agegrp_label = agegrp_label.value) |>
-  filter(agegrp == "A01")  
+         agegrp_label = agegrp_label.value,
+         county_id = geography) |>
+  filter(agegrp == "A01")
+  
 
 
 # Create Key Variables for clear identification: county, state and year
 qwi_po <-  qwi_po |>
-  separate(col = geography_label, into = c("county", "state"), sep = ",", remove = TRUE, fill = "right", extra = "drop") |>
-  mutate(state = str_trim(state, side = "both"),
+  separate(col  = geography_label, into = c("county", "state"), sep = ",", remove = TRUE, fill = "right", extra = "drop") |>
+  mutate(state  = str_trim(state, side = "both"),
          county = str_replace_all(county, " ", "_"),
          date_q = paste0(year, ": Q", quarter)) |>
   mutate(date_q = yq(date_q)) |>
   mutate(date_q = as.Date(date_q)) |>
   relocate(date_q, .after = "state") |>
-  select(-c("geography", "agegrp", "agegrp_label")) |>
+  select(-c("agegrp", "agegrp_label")) |>
   filter(!state %in% c("DC", "PR")) |>
   arrange(state, county) |>
   mutate(county = str_replace_all(county, "-", "_")) |> 
@@ -109,37 +111,74 @@ qwi_restricted <- qwi_po |>
                        "VT", "WA", "WY", "DC", "PR")) |> 
   mutate(region = region_abbreviations[state]) |>
   relocate(region, .after = state) |>
-  group_by(county) |>
+  filter(year >= 2001 & year <= 2007) |>
+  group_by(county_id) |>
   filter(!any(is.na(Emp))) |>
-  ungroup()
-  distinct(state, county)
-  # mutate(EmpEnd_dist = ifelse(is.na(EmpEnd), 1, 0),
-  #        Emp_dist = ifelse(is.na(Emp), 1, 0)) |>
-  #filter((date_q >= "2003-04-01") & (date_q <= "2007-01-01")) |>
-  left_join(cdb_2000_restricted, by = c("state", "county")) |> distinct(state, county)
+  ungroup() 
+
+# Matching data of data of cdb with qwi
+qwi_matched <- qwi_restricted |>
+  left_join(cdb_2000_restricted, by = c("state", "county")) |>
+  group_by(county, state) |>
   filter(!(is.na(pop_nr_2000) & 
            is.na(nr_white_2000) & 
-           is.na(Median_Inc_1997_USD) & 
            is.na(HS_1990_perc) & 
            is.na(poverty_allages_1997_perc) &
            is.na(white_pop_2000_perc) & 
            is.na(pop_2000_nr_1000s) & 
-           is.na(median_income_1997_1000s))) |> distinct(state, county) |> View()
+           is.na(median_income_1997_1000s))) |>
+  ungroup() 
+
+# Special case of Baltimore (MD), Fairfax (VA), Franklin (VA), Richmond (VA),
+# Roanoke (MD): These are listed as Independent Cities in CDB but are similarly
+# the label in QWI does not distinguish between county and city in 
+
+# Isolate Independent Cities in CDB (Hardcoded)
+cdb_specialcase <- cdb_2000_restricted |>
+  filter(state == "IC") |>
+  filter(str_detect(county, regex("baltimore|fairfax|richmond|roanoke|franklin", ignore_case = TRUE))) |>
+  mutate(county_id = c("24510", "51600", "51620", "51760","51770")) |>
+  relocate(county_id, .before = county)
+
+qwi_matched |>
+  left_join(cdb_specialcase, by = c("county_id")) |> View()
+  mutate(
+         pop_nr_2000.x = ifelse(!is.na(pop_nr_2000.y), pop_nr_2000.y, pop_nr_2000.x ),
+         nr_white_2000.x = ifelse(!is.na(nr_white_2000.y), nr_white_2000.y, nr_white_2000.x),
+         Median_Inc_1997_USD.x = ifelse(!is.na(Median_Inc_1997_USD.y), Median_Inc_1997_USD.y, Median_Inc_1997_USD.x ),
+         HS_1990_perc.x = ifelse(!is.na(HS_1990_perc.y), HS_1990_perc.y, HS_1990_perc.x),
+         poverty_allages_1997_perc.x = ifelse(!is.na(poverty_allages_1997_perc.y), poverty_allages_1997_perc.y, poverty_allages_1997_perc.x),
+         white_pop_2000_perc.x = ifelse(!is.na(white_pop_2000_perc.y), white_pop_2000_perc.y, white_pop_2000_perc.x),
+         pop_2000_nr_1000s.x = ifelse(!is.na(pop_2000_nr_1000s.y), pop_2000_nr_1000s.y, pop_2000_nr_1000s.x),
+         median_income_1997_1000s.x = ifelse(!is.na(median_income_1997_1000s.y), median_income_1997_1000s.y, median_income_1997_1000s.x)
+         ) |>
+  select(-matches(".y")) |>
+  rename_with(.fn = ~ sub("\\.x$", "", .x), .cols = ends_with(".x")) 
+
+
+
+# Replace the values of Independt cities 
+  
+cdb_2000_restricted |> filter(str_detect(county, regex("baltimore|fairfax|richmond|roanoke|franklin", ignore_case = TRUE))) |> View()
+
+  distinct(state, county)
+  # mutate(EmpEnd_dist = ifelse(is.na(EmpEnd), 1, 0),
+  #        Emp_dist = ifelse(is.na(Emp), 1, 0)) |>
+  #filter((date_q >= "2003-04-01") & (date_q <= "2007-01-01")) |>
+  |> distinct(state, county) |> View()
   filter(is.na(Emp)) |>  #(Continue check for the right amount of counties)
   table(sEmp) 
 
   left_join(cdb_2000_restricted, by = c("state", "county")) |> distinct(state, county)
 
-# qwi_matched 
- qwi_restricted |>
-  left_join(cdb_2000_restricted, by = c("state", "county")) |> 
-  filter((date_q >= "2003-04-01") & (date_q <= "2007-01-01")) |>
-  filter(!is.na(Emp)) |>
-  distinct(county, state) |>
-  nrow() 
+# Check if all counties are abvialable for all time quarters
 
-return(qwi_po_matched)
+yearly_counts <- qwi_matched |>
+  group_by(state, county) |>
+  summarise(yearly_obs = n(), .groups = "drop")
 
+yearly_counts |>
+  filter(yearly_obs == 56)
 qwi_po |>
   filter(!state %in% above_fed_mw) |>
   filter(!sEmp == 5) |>
@@ -153,7 +192,7 @@ qwi_po |>
   filter(year == 2001) |>
   distinct(county)
 
-test <-  qwi_restricted |> filter(str_detect(date_q, regex("-01-01"))) 
+test <-  qwi_matched |> filter(str_detect(date_q, regex("-01-01"))) 
 
 v <- data.frame(year = rep(NA, 7), county_nr = rep(NA, 7))
 
@@ -161,7 +200,7 @@ for(i in 2001:2007) {
 
   v[i - 2000, 1] <- i
     
-  v[i - 2000, 2] <- qwi_restricted |> 
+  v[i - 2000, 2] <- qwi_matched |> 
   filter(year == i) |>
   distinct(county, state) |>
   nrow()
