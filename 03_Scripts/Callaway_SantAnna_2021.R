@@ -140,8 +140,9 @@ cdb_specialcase <- cdb_2000_restricted |>
   mutate(county_id = c("24510", "51600", "51620", "51760","51770")) |>
   relocate(county_id, .before = county)
 
-qwi_matched |>
-  left_join(cdb_specialcase, by = c("county_id")) |> View()
+# Replace the relevant values of all 5 independent citis
+qwi_matched <- qwi_matched |>
+  left_join(cdb_specialcase, by = c("county_id")) |>
   mutate(
          pop_nr_2000.x = ifelse(!is.na(pop_nr_2000.y), pop_nr_2000.y, pop_nr_2000.x ),
          nr_white_2000.x = ifelse(!is.na(nr_white_2000.y), nr_white_2000.y, nr_white_2000.x),
@@ -157,40 +158,14 @@ qwi_matched |>
 
 
 
-# Replace the values of Independt cities 
-  
-cdb_2000_restricted |> filter(str_detect(county, regex("baltimore|fairfax|richmond|roanoke|franklin", ignore_case = TRUE))) |> View()
 
-  distinct(state, county)
-  # mutate(EmpEnd_dist = ifelse(is.na(EmpEnd), 1, 0),
-  #        Emp_dist = ifelse(is.na(Emp), 1, 0)) |>
-  #filter((date_q >= "2003-04-01") & (date_q <= "2007-01-01")) |>
-  |> distinct(state, county) |> View()
-  filter(is.na(Emp)) |>  #(Continue check for the right amount of counties)
-  table(sEmp) 
-
-  left_join(cdb_2000_restricted, by = c("state", "county")) |> distinct(state, county)
 
 # Check if all counties are abvialable for all time quarters
 
 yearly_counts <- qwi_matched |>
-  group_by(state, county) |>
+  group_by(county_id) |>
   summarise(yearly_obs = n(), .groups = "drop")
 
-yearly_counts |>
-  filter(yearly_obs == 56)
-qwi_po |>
-  filter(!state %in% above_fed_mw) |>
-  filter(!sEmp == 5) |>
-  distinct(county, state)
-
-test <- qwi_po |> 
-  filter((date_q >= "2003-04-01") & (date_q <= "2007-01-01")) |>
-  mutate(treat_general = ifelse(state %in% above_fed_mw, 1, 0))
-
-qwi_po |>
-  filter(year == 2001) |>
-  distinct(county)
 
 test <-  qwi_matched |> filter(str_detect(date_q, regex("-01-01"))) 
 
