@@ -78,7 +78,6 @@ qwi_po <- qwi_po_raw |>
   filter(agegrp == "A01")
   
 
-
 # Create Key Variables for clear identification: county, state and year
 qwi_po <-  qwi_po |>
   separate(col  = geography_label, into = c("county", "state"), sep = ",", remove = TRUE, fill = "right", extra = "drop") |>
