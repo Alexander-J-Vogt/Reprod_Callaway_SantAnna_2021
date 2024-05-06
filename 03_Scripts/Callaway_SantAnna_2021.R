@@ -3,6 +3,7 @@ rm(list = ls(all = TRUE))
 library(tidyverse)
 library(haven)
 library(plm)
+library(did)
 # library(httr)
 
 data_path <- "01_Data"
@@ -102,7 +103,11 @@ qwi_po <- qwi_po |>
                                            "NC", "OH", "WV" ), 1, 0)) |>
   mutate(general_treat_ind = ifelse(state %in% c("IL", "FL", "MN", "WI", "CO",
                                                  "MD", "MI", "MO", "MT", "NV",
-                                                 "NC", "OH", "WV" ), 1, 0))
+                                                 "NC", "OH", "WV" ), 1, 0)) |>
+  mutate(group = ifelse(state == "IL", 2004, 0),
+         group = ifelse(state %in% c("FL", "MN", "WI"), 2006, group),
+         group = ifelse(state %in% c("CO", "MD", "MI", "MO", "MT", "NV" ,
+                                     "NC", "OH", "WV" ), 2007, group))
 
 # Filter for all relevant states and create a region indicator 
 qwi_restricted <- qwi_po |>
@@ -153,12 +158,42 @@ qwi_matched <- qwi_matched |>
          pop_2000_nr_1000s.x = ifelse(!is.na(pop_2000_nr_1000s.y), pop_2000_nr_1000s.y, pop_2000_nr_1000s.x),
          median_income_1997_1000s.x = ifelse(!is.na(median_income_1997_1000s.y), median_income_1997_1000s.y, median_income_1997_1000s.x)
          ) |>
-  select(-matches(".y")) |>
-  rename_with(.fn = ~ sub("\\.x$", "", .x), .cols = ends_with(".x")) 
+  select(-c("county.y", "state.y", "state_name.y", "pop_nr_2000.y", "nr_white_2000.y",
+            "Median_Inc_1997_USD.y", "HS_1990_perc.y", "poverty_allages_1997_perc.y", 
+            "white_pop_2000_perc.y", "pop_2000_nr_1000s.y", "median_income_1997_1000s.y")) |>
+  rename_with(.fn = ~ sub("\\.x$", "", .x), .cols = ends_with(".x")) |>
+  select(-c("EmpEnd", "EmpS", "EmpSpv", "EmpTotal", "sEmp", "sEmpEnd", "sEmpS",  
+            "sEmpSpv", "sEmpTotal"))
 
-qwi <-  qwi_matched
 
-is
+qwi <-  qwi_matched |>
+  select(-c("state", "county", "region", "year", "quarter")) |>
+  filter(str_detect(date_q, regex("-01-01", ignore_case = TRUE))) |>
+  mutate(date_y = as.double(str_sub(date_q, 1, 4)),
+         county_id = as.double(county_id),
+         lnEmp = log(Emp)) |>
+  relocate(date_y, .after = county_id) |>
+  select(-c("date_q"))
+
+is.pbalanced(qwi)
+
+out1 <- did::att_gt(yname = "lnEmp",
+                    tname = "date_y",
+                    idname = "county_id",
+                    gname = "group",
+                    xformla = ~white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc,
+                    data = qwi,
+                    est_method = "dr")
+summary(out1)
+
+
+ggdid((out1))
+
+################################################################################
+## Start with the replication of the group-time average treatment effect
+
+
+
 
 
 
