@@ -166,7 +166,6 @@ data_pop <- creating_dataframe(extr_pop, column_names_pop)
 data_race <- creating_dataframe(extr_race, column_names_race)
 
 
-
 ################################################################################
 # 2. Step: Cleaning the Data frames
 ################################################################################

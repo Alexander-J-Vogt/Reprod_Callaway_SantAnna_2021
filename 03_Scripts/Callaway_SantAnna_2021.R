@@ -165,7 +165,7 @@ qwi_matched <- qwi_matched |>
   select(-c("EmpEnd", "EmpS", "EmpSpv", "EmpTotal", "sEmp", "sEmpEnd", "sEmpS",  
             "sEmpSpv", "sEmpTotal"))
 
-
+# Transform dataset into the equivalent dataset structure as in Callaway & Sant'Anna (2021)
 qwi <-  qwi_matched |>
   select(-c("state", "county", "region", "year", "quarter")) |>
   filter(str_detect(date_q, regex("-01-01", ignore_case = TRUE))) |>
@@ -175,30 +175,14 @@ qwi <-  qwi_matched |>
   relocate(date_y, .after = county_id) |>
   select(-c("date_q"))
 
+# Check if data is balacnced: Yes, it is.
 is.pbalanced(qwi)
 
-out1 <- did::att_gt(yname = "lnEmp",
-                    tname = "date_y",
-                    idname = "county_id",
-                    gname = "group",
-                    xformla = ~white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc,
-                    data = qwi,
-                    est_method = "dr")
-summary(out1)
+# Save as RDS
+saveRDS(qwi, paste0("./", data_path, "/", "qwi_matched.RDS"))
 
 
-ggdid((out1))
-
-################################################################################
-## Start with the replication of the group-time average treatment effect
-
-
-
-
-
-
-
-# Check if all counties are abvialable for all time quarters
+# Check if all counties appear regularly over time
 
 yearly_counts <- qwi_matched |>
   group_by(county_id) |>
