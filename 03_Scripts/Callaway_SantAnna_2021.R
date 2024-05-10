@@ -186,7 +186,7 @@ saveRDS(qwi, paste0("./", data_path, "/", "qwi_matched.RDS"))
 
 yearly_counts <- qwi_matched |>
   group_by(county_id) |>
-  summarise(yearly_obs = n(), .groups = "drop")
+  summarise(yearly_obs = n(), .groups = "drop")get
 
 
 test <-  qwi_matched |> filter(str_detect(date_q, regex("-01-01"))) 
