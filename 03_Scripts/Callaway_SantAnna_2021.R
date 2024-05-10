@@ -101,9 +101,9 @@ qwi_po <- qwi_po |>
          treat_g2006 = ifelse(state %in% c("FL", "MN", "WI"), 1, 0),
          treat_g2007 = ifelse(state %in% c("CO", "MD", "MI", "MO", "MT", "NV" ,
                                            "NC", "OH", "WV" ), 1, 0)) |>
-  mutate(general_treat_ind = ifelse(state %in% c("IL", "FL", "MN", "WI", "CO",
-                                                 "MD", "MI", "MO", "MT", "NV",
-                                                 "NC", "OH", "WV" ), 1, 0)) |>
+  mutate(treated = ifelse(state %in% c("IL", "FL", "MN", "WI", "CO",
+                                       "MD", "MI", "MO", "MT", "NV",
+                                       "NC", "OH", "WV" ), 1, 0)) |>
   mutate(group = ifelse(state == "IL", 2004, 0),
          group = ifelse(state %in% c("FL", "MN", "WI"), 2006, group),
          group = ifelse(state %in% c("CO", "MD", "MI", "MO", "MT", "NV" ,
@@ -186,7 +186,7 @@ saveRDS(qwi, paste0("./", data_path, "/", "qwi_matched.RDS"))
 
 yearly_counts <- qwi_matched |>
   group_by(county_id) |>
-  summarise(yearly_obs = n(), .groups = "drop")get
+  summarise(yearly_obs = n(), .groups = "drop")
 
 
 test <-  qwi_matched |> filter(str_detect(date_q, regex("-01-01"))) 
