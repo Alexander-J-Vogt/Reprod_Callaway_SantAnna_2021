@@ -42,37 +42,90 @@ qwi <- qwi |>
 
 
 
-
-
-
-# drdid for g = 2004
-
+# drdid for g = treated# drdid for g = 2004
+spec_formula <- ~-1+white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc
 
 data <- qwi
-timelist <- distinct(qwi$date_y)
-grouplist <- distinct(qwi$group)
+timelist <- unique(qwi$date_y)
+grouplist <- unique(qwi$group)
+num_of_cases <- length(timelist) * length(grouplist)
+
+attgt.df <- as.data.frame(matrix(NA, nrow = num_of_cases, ncol = 3))
+colnames(attgt.df) <- c("attgt", "group", "year")
+att.gt.ls <- ls()
+number <- 1
+n <- nrow(qwi)
+nr_group <- length(grouplist)
+nr_treated <- qwi |> filter(treated == 1) |> nrow()
+
+
+IF <- Matrix::Matrix(data = 0, nrow = n, ncol = nr_group * (nr_treated * 1), sparse = TRUE)
+
+
+
+if(period >= group) {
+  reference_year <- group - 1
+} else {
+  reference_year <- period - 1 
+}
+
+ind <- data$group %in% c(2004, 0)
+
+
 
 # current group indicator (should get overwritten once we loop over groups)
 data$cg <- ifelse(data$group == 2004, TRUE, FALSE)
 
-# Subset data of group - post-treatment
-data_current <- data |> filter(group == 2004 & date_y == 2005)
+# Select data in pre- & post-treatment period for relevant group and never-treated
+data_sel <- subset(data, group %in% c(2004, 0) & date_y == c(2003, 2004))
 
-# Subset data of group
-data_p
+# Create treatment indicator and date variables as character
+data_sel <- data_sel|> 
+  mutate(
+         date = paste0("y", date_y),
+         treat = ifelse(group == 2004, 1, 0)
+         )
+
+data_cs <- panel2cs2(data_sel, yname = "lnEmp", idname = "county_id", tname = "date", balance_panel = FALSE)
+data_cs <- data_cs |> filter(!is.na(.y1))
+covariates <- model.matrix(spec_formula, data_cs)
+
+
+att <- DRDID::drdid_panel(y1 = data_cs$.y1, 
+                          y0 = data_cs$.y0,
+                          D  = data_cs$treat,
+                          covariates = covariates,
+                          inffunc    = TRUE,
+                          boot       = FALSE)
+
+att.gt.ls <- list(attgt = att$ATT, group = 2004, period = 2003)
+
+
+# recover influence function
+if_vector <- rep(0, n)
+if_vector[ind] <- att$att.inf.func
 
 
 
-panel2cs2(qwi, yname = lnEmp, idname = county_id, tname = date_y, balance_panel =  FALSE )
+?attgt.df[1, 1] <- att$ATT 
+attgt.df[1, 2] <- 2004
+attgt.df[1, 3] <- 2003
+
+
+
+
+
+att$att.inf.func
+ 
+
+test_qwi <- qwi[date_y %in% c(2004, 2005)] 
+test_qwi <- test_qwi |> 
+  mutate(date = as.character(paste0("y", date_y)))
 
 cov <-  model.matrix()
 
 
 
-DRDID::drdid_panel(y1 = eval_lalonde_cps$re78, 
-                   y0 = eval_lalonde_cps$re75,
-                   D = eval_lalonde_cps$experimental,
-                   covariates = covX,)
 
 
 
@@ -82,7 +135,14 @@ DRDID::drdid_panel(y1 = eval_lalonde_cps$re78,
 
 
 
-
+out2 <-  did::compute.aggte(yname = "lnEmp",
+                       tname = "date_y",
+                       idname = "county_id",
+                       gname = "group",
+                       xformla = ~white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc,
+                       data = qwi,
+                       est_method = "dr",
+                       base_period = "varying")
 
 
 
