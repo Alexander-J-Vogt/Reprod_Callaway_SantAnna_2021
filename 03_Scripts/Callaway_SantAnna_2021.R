@@ -175,6 +175,8 @@ qwi <-  qwi_matched |>
   relocate(date_y, .after = county_id) |>
   select(-c("date_q"))
 
+
+
 # Check if data is balacnced: Yes, it is.
 is.pbalanced(qwi)
 
