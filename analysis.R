@@ -145,6 +145,10 @@ if_matrix[,1] <- if_vector
 
 
 
+
+
+
+
 att$att.inf.func
  
 
