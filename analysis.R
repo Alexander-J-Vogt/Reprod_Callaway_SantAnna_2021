@@ -1,5 +1,5 @@
 ################################################################################
-# Reproduction of Callaway & Sant'Anna (2021)
+#Reproduction of Callaway & Sant'Anna (2021)
 ################################################################################
 
 # Remove exisitng environment
@@ -40,7 +40,7 @@ qwi <- qwi |>
 #' 
 
 
-
+#---- Start up & Define variables ----------------------------------------------
 
 # covariates formula
 spec_formula <- ~-1+white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc
@@ -60,13 +60,18 @@ att.gt.ls <- ls()
 
 # create empty matrix
 number <- 1
-n <- nrow(qwi)
+n_unique <- length(unique(qwi$county_id))
 nr_group <- length(grouplist)
-nr_treated <- qwi |> filter(treated == 1) |> nrow()
+nr_times <- length(timelist)
 
 
-IF <- Matrix::Matrix(data = 0, nrow = n, ncol = nr_group * (nr_treated * 1), sparse = TRUE)
+if_matrix <- Matrix::Matrix(data = 0, nrow = n_unique, 
+                            ncol = nr_group * (nr_times - 1), 
+                            sparse = TRUE)
+nrow(if_matrix)
 
+
+# ---- Calculation and later loop ----------------------------------------------
 
 # 
 # if(period >= group) {
@@ -79,24 +84,28 @@ IF <- Matrix::Matrix(data = 0, nrow = n, ncol = nr_group * (nr_treated * 1), spa
 
 # current group indicator (should get overwritten once we loop over groups)
 data$g <- ifelse(data$group == 2004, 1, 0)
-data$c <- ifelse(data$group == 0, 1, 0)
+data$c <- ifelse(data$group == 0   , 1, 0)
 
 # Select data in pre- & post-treatment period for relevant group and never-treated
 data <- subset(data, date_y %in% c(2003, 2004)) # must be replaced by reference year and current period in loop
 
 
-# select group & nevertreated
-ind_g_c <- (data$g == 1) | (data$c == 1)
-data_sel <- data[ind_g_c,]
+
+# indicator for influence matrix
+index_data <- data[data$date_y == 2004,]
+index_inffunc <- (index_data$g == 1) | (index_data$c == 1)
+n_sample <- length(unique(index_data$county_id))
+
+# select group & nevertreated (control)
+index_gc <- (data$g == 1) | (data$c == 1)
+data_sel <- data[index_gc,]
+n_subset <- length(unique(data_sel$county_id))
 
 # Create treatment indicator and date variables as character
 data_sel <- data_sel|> 
-  mutate(
-         date = paste0("y", date_y),
-         treat = ifelse(group == 2004, 1, 0)
-         )
+  mutate(date = paste0("y", date_y), treat = ifelse(group == 2004, 1, 0))
 
-# Use BMisc::panel2cs2 to transform the two period panel datset into a
+# Use BMisc::panel2cs2 to transform the two period panel dataset into a
 # into a cross-sectional data set, which is required for the function, which
 # calculates the Doubly Robust DiD-estimator
 data_cs <- BMisc::panel2cs2(data_sel, yname = "lnEmp", idname = "county_id", 
@@ -120,19 +129,19 @@ att <- DRDID::drdid_panel(y1 = data_cs$.y1,
                           boot       = FALSE)
 
 # recover att
-att.gt.ls <- list(attgt = att$ATT, group = 2004, period = 2003)
+att.gt.ls[[1]]<- list(attgt = att$ATT, group = 2004, period = 2003)
 
-# recover influence function
-if_vector <- rep(0, n)
-if_vector[ind] <- att$att.inf.func
-
-
-
+# Data Frame of ATTgt
 # attgt.df[1, 1] <- att$ATT 
 # attgt.df[1, 2] <- 2004
 # attgt.df[1, 3] <- 2003
 
-
+# recover influence function
+if_vector <- rep(0, n_sample)
+# estimate of influence function, weighted by relative sample size
+if_vector[index_inffunc] <- (n_subset / n_sample) * att$att.inf.func
+# save vector of round x into the column
+if_matrix[,1] <- if_vector
 
 
 
