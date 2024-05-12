@@ -93,7 +93,6 @@ for (g in grouplist) {
       reference_year <- t
     }
     
-    
     print(paste0("reference year: ", reference_year))
     
     # current group indicator (should get overwritten once we loop over groups)
