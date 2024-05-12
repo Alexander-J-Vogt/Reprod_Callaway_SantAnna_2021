@@ -11,7 +11,7 @@ library(data.table)
 library(haven)
 library(DRDID)
 library(did)
-
+library(BMisc)
 
 # load data
 qwi <- read_rds(paste0("./", "01_Data/qwi_matched.RDS"))
@@ -80,12 +80,18 @@ IF <- Matrix::Matrix(data = 0, nrow = n, ncol = nr_group * (nr_treated * 1), spa
 # current group indicator (should get overwritten once we loop over groups)
 data$g <- ifelse(data$group == 2004, 1, 0)
 data$c <- ifelse(data$group == 0, 1, 0)
-ind_g_c <- (data$g == 1) | (data$c == 1)
 
-data_test <- data[ind_g_c == 1,]
+
+# data_test <- data[ind_g_c == 1,]
 
 # Select data in pre- & post-treatment period for relevant group and never-treated
-data_sel <- subset(data, group %in% c(2004, 0) & date_y %in% c(2004))
+# data_sel <- subset(data, group %in% c(2004, 0) & date_y %in% c(2003, 2004))
+data <- subset(data, date_y %in% c(2003, 2004)) # must be replaced by reference year and current period in loop
+
+
+# select group & nevertreated
+ind_g_c <- (data$g == 1) | (data$c == 1)
+data_sel <- data[ind_g_c,]
 
 # Create treatment indicator and date variables as character
 data_sel <- data_sel|> 
