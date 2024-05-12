@@ -97,13 +97,11 @@ for (g in grouplist) {
     print(paste0("reference year: ", reference_year))
     
     # current group indicator (should get overwritten once we loop over groups)
-    data$g_ <- ifelse(data$group == g, 1, 0) # loop
+    data$g_ <- ifelse(data$group == g, 1, 0) 
     data$c_ <- ifelse(data$group == 0   , 1, 0)
     
     # Select data in pre- & post-treatment period for relevant group and never-treated
     data <- subset(data, date_y %in% c(reference_year, t + 1)) # must be replaced by reference year and current period in loop
-    
-    View(data)
     
     # indicator for influence matrix
     index_data    <- data[!duplicated(data$county_id),] # loop 
@@ -119,7 +117,7 @@ for (g in grouplist) {
     data_sel <- data_sel|> 
       mutate(date = paste0("y", date_y), treat = ifelse(group == g, 1, 0))
     
-    View(data_sel)
+    if(length(unique(data$date_y)) == 2) {
     
     # Use BMisc::panel2cs2 to transform the two period panel dataset into a
     # into a cross-sectional data set, which is required for the function, which
@@ -129,6 +127,11 @@ for (g in grouplist) {
                                 idname = "county_id", 
                                 tname  = "date", 
                                 balance_panel = FALSE)
+    
+    } else {
+      number <- number -1
+      next
+    }
     
     # If the number of rows is odd, the BMisc::panel2cs2 function produces missing 
     # in either .y1 or .y0. Thus, the NA's need to be removed, otherwise we don't
@@ -151,9 +154,9 @@ for (g in grouplist) {
     att.gt.ls[[number]]<- list(attgt = att$ATT, group = g, period = t + 1)
     
     # Data Frame of ATTgt
-    # attgt.df[1, 1] <- att$ATT 
-    # attgt.df[1, 2] <- 2004
-    # attgt.df[1, 3] <- 2003
+     attgt.df[number, 1] <- att$ATT 
+     attgt.df[number, 2] <- g
+     attgt.df[number, 3] <- t + 1
     
     
     ## Recover influence function
@@ -165,10 +168,9 @@ for (g in grouplist) {
     
     # save vector of round x into the column
     if_matrix[, number] <- if_vector
-
+    
     # add 1 to number for index
     number <- number + 1
-    
     
   }
 
