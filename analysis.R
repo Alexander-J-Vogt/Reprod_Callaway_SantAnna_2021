@@ -42,17 +42,23 @@ qwi <- qwi |>
 
 
 
-# drdid for g = treated# drdid for g = 2004
+# covariates formula
 spec_formula <- ~-1+white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc
 
+# copy of qwi
 data <- qwi
+
+# relevant numbers
 timelist <- unique(qwi$date_y)
 grouplist <- unique(qwi$group)
 num_of_cases <- length(timelist) * length(grouplist)
 
+# create empty data frame and/or list
 attgt.df <- as.data.frame(matrix(NA, nrow = num_of_cases, ncol = 3))
 colnames(attgt.df) <- c("attgt", "group", "year")
 att.gt.ls <- ls()
+
+# create empty matrix
 number <- 1
 n <- nrow(qwi)
 nr_group <- length(grouplist)
@@ -62,22 +68,24 @@ nr_treated <- qwi |> filter(treated == 1) |> nrow()
 IF <- Matrix::Matrix(data = 0, nrow = n, ncol = nr_group * (nr_treated * 1), sparse = TRUE)
 
 
-
-if(period >= group) {
-  reference_year <- group - 1
-} else {
-  reference_year <- period - 1 
-}
-
-ind <- data$group %in% c(2004, 0)
+# 
+# if(period >= group) {
+#   reference_year <- group - 1
+# } else {
+#   reference_year <- period - 1 
+# }
 
 
 
 # current group indicator (should get overwritten once we loop over groups)
-data$cg <- ifelse(data$group == 2004, TRUE, FALSE)
+data$g <- ifelse(data$group == 2004, 1, 0)
+data$c <- ifelse(data$group == 0, 1, 0)
+ind_g_c <- (data$g == 1) | (data$c == 1)
+
+data_test <- data[ind_g_c == 1,]
 
 # Select data in pre- & post-treatment period for relevant group and never-treated
-data_sel <- subset(data, group %in% c(2004, 0) & date_y == c(2003, 2004))
+data_sel <- subset(data, group %in% c(2004, 0) & date_y %in% c(2004))
 
 # Create treatment indicator and date variables as character
 data_sel <- data_sel|> 
@@ -87,7 +95,7 @@ data_sel <- data_sel|>
          )
 
 data_cs <- panel2cs2(data_sel, yname = "lnEmp", idname = "county_id", tname = "date", balance_panel = FALSE)
-data_cs <- data_cs |> filter(!is.na(.y1))
+data_cs <- data_cs |> filter(!is.na(.y1)) 
 covariates <- model.matrix(spec_formula, data_cs)
 
 
@@ -107,9 +115,9 @@ if_vector[ind] <- att$att.inf.func
 
 
 
-?attgt.df[1, 1] <- att$ATT 
-attgt.df[1, 2] <- 2004
-attgt.df[1, 3] <- 2003
+# attgt.df[1, 1] <- att$ATT 
+# attgt.df[1, 2] <- 2004
+# attgt.df[1, 3] <- 2003
 
 
 
