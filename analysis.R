@@ -81,11 +81,7 @@ IF <- Matrix::Matrix(data = 0, nrow = n, ncol = nr_group * (nr_treated * 1), spa
 data$g <- ifelse(data$group == 2004, 1, 0)
 data$c <- ifelse(data$group == 0, 1, 0)
 
-
-# data_test <- data[ind_g_c == 1,]
-
 # Select data in pre- & post-treatment period for relevant group and never-treated
-# data_sel <- subset(data, group %in% c(2004, 0) & date_y %in% c(2003, 2004))
 data <- subset(data, date_y %in% c(2003, 2004)) # must be replaced by reference year and current period in loop
 
 
@@ -100,11 +96,22 @@ data_sel <- data_sel|>
          treat = ifelse(group == 2004, 1, 0)
          )
 
-data_cs <- panel2cs2(data_sel, yname = "lnEmp", idname = "county_id", tname = "date", balance_panel = FALSE)
-data_cs <- data_cs |> filter(!is.na(.y1)) 
+# Use BMisc::panel2cs2 to transform the two period panel datset into a
+# into a cross-sectional data set, which is required for the function, which
+# calculates the Doubly Robust DiD-estimator
+data_cs <- BMisc::panel2cs2(data_sel, yname = "lnEmp", idname = "county_id", 
+                            tname = "date", balance_panel = FALSE)
+
+# If the number of rows is odd, the BMisc::panel2cs2 function produces missing 
+# in either .y1 or .y0. Thus, the NA's need to be removed, otherwise we don't
+# yield any DiD-estimator
+data_cs <- data_cs[!is.na(.y1),]
+data_cs <- data_cs[!is.na(.y0),]
+
+# Save a matrix of covariates
 covariates <- model.matrix(spec_formula, data_cs)
 
-
+# att of group g at time point t
 att <- DRDID::drdid_panel(y1 = data_cs$.y1, 
                           y0 = data_cs$.y0,
                           D  = data_cs$treat,
@@ -112,8 +119,8 @@ att <- DRDID::drdid_panel(y1 = data_cs$.y1,
                           inffunc    = TRUE,
                           boot       = FALSE)
 
+# recover att
 att.gt.ls <- list(attgt = att$ATT, group = 2004, period = 2003)
-
 
 # recover influence function
 if_vector <- rep(0, n)
