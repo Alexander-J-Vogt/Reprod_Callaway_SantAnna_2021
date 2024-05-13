@@ -181,6 +181,8 @@ for (g in grouplist) {
 }
 attgt.df
 
+
+
 # --- Multiplier Bootstrap -----------------------------------------------------
 
 # Step 1: Define sequence of 
