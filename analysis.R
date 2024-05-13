@@ -37,7 +37,7 @@ qwi <- qwi |>
 #' yield the ATT for each year after the reference period. 
 #' Core problem: What is the reference period? - Reference period is g-1 
 #' How do you calculate the ATT for pre-treatment periods?
-#' 
+#'
 
 
 #---- Start up & Define variables ----------------------------------------------
@@ -76,9 +76,7 @@ if_matrix <- Matrix::Matrix(data = 0, nrow = n_unique,
 data_origin <- qwi
 
 for (g in grouplist) {
-  # g <- 2004
-  # t <- 2006
-  # number <- 7
+
    for (t in timelist) {
   
     data <- data_origin
@@ -90,9 +88,9 @@ for (g in grouplist) {
     } else {
       reference_year <- t
     }
-    print(paste0("This is in year:", t + 1))
+
     print(paste0("Iteration: ", number))
-    # print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
+    print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
     
     # current group indicator (should get overwritten once we loop over groups)
     data$g_ <- ifelse(data$group == g, 1, 0) 
