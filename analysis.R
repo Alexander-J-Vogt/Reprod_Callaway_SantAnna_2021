@@ -81,6 +81,10 @@ for (g in grouplist) {
   
     data <- data_origin
     
+    ###
+    # Add weight if-conidition (if time)
+    ###
+    
     # determine reference_year based on whether t lays within the post-treatment 
     # period or not
     if(t >= g) {
@@ -89,8 +93,6 @@ for (g in grouplist) {
       reference_year <- t
     }
     
-    print(paste0("Iteration: ", number))
-    print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
     
     # current group indicator (should get overwritten once we loop over groups)
     data$g_ <- ifelse(data$group == g, 1, 0) 
@@ -127,9 +129,13 @@ for (g in grouplist) {
     data_wide       <- data_wide[data_wide$index == 0,]
     
     } else {
-      print(paste0("End of iteration in group: ", g, " in ", t))
+      print(paste0("[!!] End of group iteration: ", g))
       next
     }
+    
+    # Consol output
+    print(paste0("Iteration: ", number))
+    print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
     
     # If the number of rows is odd, the BMisc::panel2cs2 function produces missing 
     # in either .y1 or .y0. Thus, the NA's need to be removed, otherwise we don't
@@ -152,16 +158,16 @@ for (g in grouplist) {
     att.gt.ls[[number]]<- list(attgt = att$ATT, group = g, period = t + 1)
     
     # Data Frame of ATTgt
-     attgt.df[number, 1] <- att$ATT 
-     attgt.df[number, 2] <- g
-     attgt.df[number, 3] <- t + 1
+    attgt.df[number, 1] <- att$ATT 
+    attgt.df[number, 2] <- g
+    attgt.df[number, 3] <- t + 1
     
     
     ## Recover influence function
     # Create a empty vector with the length of unique observations
     if_vector <- rep(0, n_sample)
     
-    # estimate of influence function, weighted by relative sample size &
+    # estimate of influence function, weighted by relative sample size
     if_vector[index_inffunc] <- (n_subset / n_sample) * att$att.inf.func
     
     # save vector of round x into the column
