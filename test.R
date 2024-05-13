@@ -22,9 +22,9 @@ covX = as.matrix(cbind(eval_lalonde_cps$age, eval_lalonde_cps$educ,
                        eval_lalonde_cps$re74))
 
 # Implement traditional DR locally efficient DiD with panel data
-drdid_panel(y1 = eval_lalonde_cps$re78, y0 = eval_lalonde_cps$re75,
-            D = eval_lalonde_cps$experimental,
-            covariates = covX)
+results <- drdid_panel(y1 = eval_lalonde_cps$re78, y0 = eval_lalonde_cps$re75,
+                        D = eval_lalonde_cps$experimental,
+                       covariates = covX,
+                       inffunc = TRUE)
 
-View(nsw
-     )
+results$att.inf.func
