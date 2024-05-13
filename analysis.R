@@ -93,7 +93,8 @@ for (g in grouplist) {
       reference_year <- t
     }
     
-    print(paste0("reference year: ", reference_year))
+    print(paste0("Iteration: ", number))
+    print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
     
     # current group indicator (should get overwritten once we loop over groups)
     data$g_ <- ifelse(data$group == g, 1, 0) 
