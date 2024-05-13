@@ -50,7 +50,7 @@ spec_formula <- ~-1+white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_10
 timelist <- unique(qwi$date_y)
 grouplist <- sort(unique(qwi$group))
 grouplist <- grouplist[grouplist != 0]
-num_of_cases <- length(timelist) * length(grouplist)
+num_of_cases <- (length(timelist) - 1) * length(grouplist)
 
 # create empty data frame and/or list
 attgt.df <- as.data.frame(matrix(NA, nrow = num_of_cases, ncol = 3))
@@ -73,17 +73,15 @@ if_matrix <- Matrix::Matrix(data = 0, nrow = n_unique,
 # ---- Calculation and later loop ----------------------------------------------
 
 # copy of qwi
-data <- qwi
+data_origin <- qwi
 
 for (g in grouplist) {
-  #g <- 2004
-  for (t in timelist) {
+  # g <- 2004
+  # t <- 2006
+  # number <- 7
+   for (t in timelist) {
   
-    data <- qwi
-    
-    print(paste0("iteration: ", number))
-    
-    print(paste0("group: ", g, " & period ", t))
+    data <- data_origin
     
     # determine reference_year based on whether t lays within the post-treatment 
     # period or not
@@ -92,12 +90,13 @@ for (g in grouplist) {
     } else {
       reference_year <- t
     }
-    
-    print(paste0("reference year: ", reference_year))
+    print(paste0("This is in year:", t + 1))
+    print(paste0("Iteration: ", number))
+    # print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
     
     # current group indicator (should get overwritten once we loop over groups)
     data$g_ <- ifelse(data$group == g, 1, 0) 
-    data$c_ <- ifelse(data$group == 0   , 1, 0)
+    data$c_ <- ifelse(data$group == 0, 1, 0)
     
     # Select data in pre- & post-treatment period for relevant group and never-treated
     data <- subset(data, date_y %in% c(reference_year, t + 1)) # must be replaced by reference year and current period in loop
@@ -128,7 +127,7 @@ for (g in grouplist) {
                                 balance_panel = FALSE)
     
     } else {
-      number <- number -1
+      print(paste0("End of iteration in group: ", g, " in ", t))
       next
     }
     
@@ -178,43 +177,10 @@ for (g in grouplist) {
 
 
 
+attgt.df
 
 
 att$att.inf.func
- 
-
-test_qwi <- qwi[date_y %in% c(2004, 2005)] 
-test_qwi <- test_qwi |> 
-  mutate(date = as.character(paste0("y", date_y)))
-
-cov <-  model.matrix()
-
-
-
-
-
-
-
-
-
-
-
-
-out2 <-  did::compute.aggte(yname = "lnEmp",
-                       tname = "date_y",
-                       idname = "county_id",
-                       gname = "group",
-                       xformla = ~white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc,
-                       data = qwi,
-                       est_method = "dr",
-                       base_period = "varying")
-
-
-
-
-
-
-
 
 
 
