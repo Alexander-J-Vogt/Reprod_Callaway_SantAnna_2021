@@ -115,14 +115,16 @@ for (g in grouplist) {
     
     if(length(unique(data$date_y)) == 2) {
     
-    # Use BMisc::panel2cs2 to transform the two period panel dataset into a
-    # into a cross-sectional data set, which is required for the function, which
-    # calculates the Doubly Robust DiD-estimator
-    data_cs <- BMisc::panel2cs2(data_sel, 
-                                yname  = "lnEmp", 
-                                idname = "county_id", 
-                                tname  = "date", 
-                                balance_panel = FALSE)
+    # Change the two period data set from long to wide format in order to be
+    # usable for the drdidpanel function. 
+    # .y1: contains outcome values for current looping period t + 1
+    # .y0: contains outcome values for reference period t
+      
+    data_wide       <- arrange(data_sel, county_id, date_y)
+    data_wide$.y1   <- data_wide$lnEmp
+    data_wide$.y0   <- shift(data_wide$lnEmp, 1)
+    data_wide$index <- ifelse(data_wide$date_y == reference_year, 1, 0)  
+    data_wide       <- data_wide[data_wide$index == 0,]
     
     } else {
       print(paste0("End of iteration in group: ", g, " in ", t))
@@ -132,16 +134,16 @@ for (g in grouplist) {
     # If the number of rows is odd, the BMisc::panel2cs2 function produces missing 
     # in either .y1 or .y0. Thus, the NA's need to be removed, otherwise we don't
     # yield any DiD-estimator
-    data_cs <- data_cs[!is.na(.y1),]
-    data_cs <- data_cs[!is.na(.y0),]
+    data_cs <- data_wide[!is.na(.y1),]
+    data_cs <- data_wide[!is.na(.y0),]
     
     # Save a matrix of covariates
-    covariates <- model.matrix(spec_formula, data_cs)
+    covariates <- model.matrix(spec_formula, data_wide)
     
     # att of group g at time point t
-    att <- DRDID::drdid_panel(y1 = data_cs$.y1, 
-                              y0 = data_cs$.y0,
-                              D  = data_cs$treat,
+    att <- DRDID::drdid_panel(y1 = data_wide$.y1, 
+                              y0 = data_wide$.y0,
+                              D  = data_wide$treat,
                               covariates = covariates,
                               inffunc    = TRUE,
                               boot       = FALSE)
