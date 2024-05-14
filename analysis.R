@@ -218,10 +218,10 @@ bootstrapping_algorithm <- function(inffunc_matrix, iter) {
     # Bernoulli Variates
     multiplied_if <- if_matrix * bernoulli_weight
     
-    # Bootstrap-Sampling-Distribution of influence functions  
+    # Bootstrap-Sampling-Distribution of influence function (nx(g*(t-1)) matrix)
     boot_results[1, ] <- colMeans(multiplied_if)
   
-  } #s
+  } # end of loop
 
 } # end of bootstrapping algorithm
 
