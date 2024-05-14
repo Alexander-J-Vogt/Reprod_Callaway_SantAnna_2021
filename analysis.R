@@ -187,14 +187,41 @@ attgt.df
 
 # Step 1: Define sequence of 
 
+
+
+data_boot <- qwi
+
+
+# multi_boot 
+iter <- 1000
 n <- nrow(if_matrix)
+n_col <- ncol(if_matrix)
+
+boot_results <- as.matrix(0, nrow = iter, ncol = ncol)
+
+
+
+for ( i in 1:iter ){
+    
+kappa <- (sqrt(5) +1) / 2
+p <- kappa / sqrt(5)
+bernoulli_weight <- rbinom(n, 1,p) # Is this rigth?
+
+multiplied_if <- if_matrix * bernoulli_weight
+
+boot_results[iter, ] <- colMeans(multiplied_if)
+
+  
+}
+
+
+
+
+
 
 
 
 att$att.inf.func
-
-
-
 out1 <- did::att_gt(yname = "lnEmp",
                     tname = "date_y",
                     idname = "county_id",
