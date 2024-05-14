@@ -181,6 +181,7 @@ for (g in grouplist) {
 }
 attgt.df
 
+m <- as.matrix(if_matrix)
 
 
 # --- Multiplier Bootstrap -----------------------------------------------------
@@ -194,27 +195,35 @@ data_boot <- qwi
 
 # multi_boot 
 iter <- 1000
-n <- nrow(if_matrix)
+if_matrix <- as.matrix(if_matrix)
+n_row <- nrow(if_matrix)
 n_col <- ncol(if_matrix)
 
-boot_results <- as.matrix(0, nrow = iter, ncol = ncol)
-
-
+# Empty matrix, which is later filled with the bootstrap 
+boot_results <- Matrix::Matrix(0, nrow = iter, ncol = n_col)
 
 for ( i in 1:iter ){
-    
-kappa <- (sqrt(5) +1) / 2
-p <- kappa / sqrt(5)
-bernoulli_weight <- rbinom(n, 1,p) # Is this rigth?
-
-multiplied_if <- if_matrix * bernoulli_weight
-
-boot_results[iter, ] <- colMeans(multiplied_if)
-
   
+  # Calculate Bernoulli Variates, which are used to select the influence 
+  # function values of each calculated ATT(g,t) f
+  # Advantage to common Bootstraping: No resampling!
+  
+  # iid Bernouli Variates $${V_i}$$ according to Mammen (1993)
+  kappa <- (sqrt(5) +1) / 2
+  p <- kappa / sqrt(5)
+  bernoulli_weight <- rbinom(n, 1,p) # Is this rigth?
+  
+  # Sampling each column (aka influence function of each ATT(g,t)) with the 
+  # Bernoulli Variates
+  multiplied_if <- if_matrix * bernoulli_weight
+  
+  # Bootstrap-Sampling-Distribution of influence functions  
+  boot_results[1, ] <- colMeans(multiplied_if)
+
 }
 
 
+sd <- apply(boot_results, FUN = sd, ...)
 
 
 
