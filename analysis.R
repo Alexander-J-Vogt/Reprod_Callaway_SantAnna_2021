@@ -193,17 +193,18 @@ data_boot <- qwi
 
 
 
-bootstrapping_algorithm <- function(inffunc_matrix, iter) {
+bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
   
-  iter <- 1000
-  if_matrix <- as.matrix(if_matrix)
-  n_row <- nrow(if_matrix)
-  n_col <- ncol(if_matrix)
+  # Setup
+  # iter <-  1000
+  inffunc <- as.matrix(inffunc_matrix)
+  n_row <- nrow(inffunc_matrix)
+  n_col <- ncol(inffunc_matrix)
   
   # Empty matrix, which is later filled with the bootstrap 
   boot_results <- Matrix::Matrix(0, nrow = iter, ncol = n_col)
   
-  for ( i in 1:iter ){
+  for ( i in 1:iter ) {
     
     # Calculate Bernoulli Variates, which are used to select the influence 
     # function values of each calculated ATT(g,t) f
@@ -212,18 +213,26 @@ bootstrapping_algorithm <- function(inffunc_matrix, iter) {
     # iid Bernouli Variates $${V_i}$$ according to Mammen (1993)
     kappa <- (sqrt(5) +1) / 2
     p <- kappa / sqrt(5)
-    bernoulli_weight <- rbinom(n, 1,p) # Is this rigth?
+    bernoulli_weight <- rbinom(n_row, 1, p) # Is this rigth?
     
     # Sampling each column (aka influence function of each ATT(g,t)) with the 
     # Bernoulli Variates
-    multiplied_if <- if_matrix * bernoulli_weight
+    multiplied_if <- inffunc * bernoulli_weight
     
     # Bootstrap-Sampling-Distribution of influence function (nx(g*(t-1)) matrix)
-    boot_results[1, ] <- colMeans(multiplied_if)
+    boot_results[i, ] <- colMeans(multiplied_if)
   
   } # end of loop
 
+  return(boot_results)
 } # end of bootstrapping algorithm
+
+
+
+bootstrapping_algorithm(if_matrix)
+
+
+sum_sign <- 
 
 
 
