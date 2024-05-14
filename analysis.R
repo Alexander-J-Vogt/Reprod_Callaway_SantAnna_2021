@@ -178,12 +178,11 @@ for (g in grouplist) {
   }
 
 }
+
 attgt.df
 
-m <- as.matrix(if_matrix)
 
-
-# --- Multiplier Bootstrap -----------------------------------------------------
+# --- Proposed Algorithm in CS -------------------------------------------------
 
 # Step 1: Define sequence of 
 
@@ -224,18 +223,30 @@ bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
   
   } # end of loop
 
+  # Return bootstrap matrix with influence function
   return(boot_results)
+  
 } # end of bootstrapping algorithm
 
 
+# Mutliplicate with sqrt(n) in order to yield adjusted limiting bootstrapping 
+# distribution of the influence function
+# Clustered on County level^
 
-bootstrapping_algorithm(if_matrix)
+n <- length(unique(data_boot$county_id))
+lim_dist <-  sqrt(n) * bootstrapping_algorithm(if_matrix)
+lim_dist <- as.matrix(lim_dist)
 
+!is.na(lim_dist)
+# Covariance Matrix
+cov <- cov(lim_dist)
 
-sum_sign <- 
-
-
-
+calculate_boots_sigma <- function(b) {
+  (quantile(b, probs = .75,  na.rm = TRUE) - quantile(b, probs = .25, na.rm = TRUE)) /
+    (qnorm(.75) - qnorm(.25))
+}
+# Calculate standard estimator based on the bootstrap distribution
+boots_sigma <- map(lim_dist, calculate_boots_sigma)
 sd <- apply(boot_results, FUN = sd, ...)
 
 
