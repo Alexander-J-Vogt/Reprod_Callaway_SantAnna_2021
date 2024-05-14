@@ -20,12 +20,12 @@ qwi <- qwi |>
   select(-c("treat_g2004", "treat_g2006", "treat_g2007", "state_name",
             "Median_Inc_1997_USD", "pop_nr_2000", "Emp", "nr_white_2000")) |>
   relocate(group, treated, .after =county_id) |>
-  relocate(lnEmp, .after = date_y)
+  relocate(lnEmp, .after = date_y) |>
+  arrange(county_id, date_y) # if sth make problem this could be the reason!
           
-
-
-
-
+# 
+# qwi_test <- arrange(qwi, county_id, date_y)
+# identical(qwi, qwi_test)
 
 ################################################################################
 ## Start with the replication of the group-time average treatment effect
@@ -82,7 +82,7 @@ for (g in grouplist) {
     data <- data_origin
     
     ###
-    # Add weight if-conidition (if time)
+    # Add weight if-condition (if time)
     ###
     
     # determine reference_year based on whether t lays within the post-treatment 
@@ -92,7 +92,6 @@ for (g in grouplist) {
     } else {
       reference_year <- t
     }
-    
     
     # current group indicator (should get overwritten once we loop over groups)
     data$g_ <- ifelse(data$group == g, 1, 0) 
@@ -193,34 +192,39 @@ m <- as.matrix(if_matrix)
 data_boot <- qwi
 
 
-# multi_boot 
-iter <- 1000
-if_matrix <- as.matrix(if_matrix)
-n_row <- nrow(if_matrix)
-n_col <- ncol(if_matrix)
 
-# Empty matrix, which is later filled with the bootstrap 
-boot_results <- Matrix::Matrix(0, nrow = iter, ncol = n_col)
+bootstrapping_algorithm <- function(inffunc_matrix, iter) {
+  
+  iter <- 1000
+  if_matrix <- as.matrix(if_matrix)
+  n_row <- nrow(if_matrix)
+  n_col <- ncol(if_matrix)
+  
+  # Empty matrix, which is later filled with the bootstrap 
+  boot_results <- Matrix::Matrix(0, nrow = iter, ncol = n_col)
+  
+  for ( i in 1:iter ){
+    
+    # Calculate Bernoulli Variates, which are used to select the influence 
+    # function values of each calculated ATT(g,t) f
+    # Advantage to common Bootstraping: No resampling!
+    
+    # iid Bernouli Variates $${V_i}$$ according to Mammen (1993)
+    kappa <- (sqrt(5) +1) / 2
+    p <- kappa / sqrt(5)
+    bernoulli_weight <- rbinom(n, 1,p) # Is this rigth?
+    
+    # Sampling each column (aka influence function of each ATT(g,t)) with the 
+    # Bernoulli Variates
+    multiplied_if <- if_matrix * bernoulli_weight
+    
+    # Bootstrap-Sampling-Distribution of influence functions  
+    boot_results[1, ] <- colMeans(multiplied_if)
+  
+  } #s
 
-for ( i in 1:iter ){
-  
-  # Calculate Bernoulli Variates, which are used to select the influence 
-  # function values of each calculated ATT(g,t) f
-  # Advantage to common Bootstraping: No resampling!
-  
-  # iid Bernouli Variates $${V_i}$$ according to Mammen (1993)
-  kappa <- (sqrt(5) +1) / 2
-  p <- kappa / sqrt(5)
-  bernoulli_weight <- rbinom(n, 1,p) # Is this rigth?
-  
-  # Sampling each column (aka influence function of each ATT(g,t)) with the 
-  # Bernoulli Variates
-  multiplied_if <- if_matrix * bernoulli_weight
-  
-  # Bootstrap-Sampling-Distribution of influence functions  
-  boot_results[1, ] <- colMeans(multiplied_if)
+} # end of bootstrapping algorithm
 
-}
 
 
 sd <- apply(boot_results, FUN = sd, ...)
