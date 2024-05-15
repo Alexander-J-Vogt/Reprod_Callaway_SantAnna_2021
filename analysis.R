@@ -26,10 +26,6 @@ qwi <- qwi |>
   relocate(lnEmp, .after = date_y) |>
   arrange(county_id, date_y) # if sth make problem this could be the reason!
           
-# 
-# qwi_test <- arrange(qwi, county_id, date_y)
-# identical(qwi, qwi_test)
-
 ################################################################################
 ## ---- Start with the replication of the group-time average treatment effect
 ################################################################################
@@ -63,7 +59,7 @@ att.gt.ls <- list()
 # create empty matrix
 number <- 1
 n_unique <- length(unique(qwi$county_id))
-nr_group <- length(grouplistl)
+nr_group <- length(grouplist)
 nr_times <- length(timelist)
 
 
@@ -195,42 +191,50 @@ vcov_matrix <- t(if_matrix) %*% if_matrix * (1 / n_unique)
 var <- diag(vcov_matrix / n_unique)
 se <-  sqrt(var)
 
+se[se <= sqrt(.Machine$double.eps)*10] <- NA
+identifier <-  unique(which(is.na(se))) 
+
 # 3. Statistics via bootstrapping ----------------------------------------------
 
-# Step 1.1: Program function for multiplier bootstrapping in order to create
-#           limiting distribution of the influence function for each ATT(g,t)
-#           estimator
+# Defined Values for 3. 
+cluster <- length(unique(qwi$county_id))
 
+
+## Step 3.1.1: Multiplier Bootstrap Function -----------------------------------
+#' Program function for multiplier bootstrapping in order to create limiting 
+#' distribution of the influence function for each ATT(g,t) estimator. 
+#' Thereby, the function resembles the first two steps of the described 
+#' Algorithm 1 in Callaway & Sant'Anna (2021). 
+#' The bootstrapping_algorithm-function is commonly specified for 
+#' all influence function in order to allow for universality in usage.
 
 bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
-  
-  # Setup
-  # iter <-  1000
+
   # Determine number of rows and columns for the multiplier bootstrap algorithm
-  inffunc <- as.matrix(inffunc_matrix)
-  n_row <- nrow(inffunc_matrix)
-  n_col <- ncol(inffunc_matrix)
+  inffunc_matrix <- as.matrix(inffunc_matrix)
+  n_row          <- nrow(inffunc_matrix)
+  n_col          <- ncol(inffunc_matrix)
   
-  # Empty matrix, which is later filled with the bootstrap 
+  # Empty matrix, which is later filled with the distribution of 
   boot_results <- Matrix::Matrix(0, nrow = iter, ncol = n_col)
   
-  # (1) & (2) of Algorithm 1 in CS
+  # (1) & (2) of Algorithm 1 in Callaway & Sant'Anna (2021)
   for ( i in 1:iter ) {
     
     # Calculate Bernoulli Variates, which are used to select the influence 
     # function values of each calculated ATT(g,t) f
     # Advantage to common Bootstrapping: No re-sampling!
     
-    #' iid Bernouli Variates $$${V_i}$$$ according to Mammen (1993)
+    # Bernoulli Variates according to Mammen (1993) which are iid
     kappa <- ( sqrt(5) + 1 ) / 2
     p <- kappa / sqrt(5)
-    bernoulli_weight <- rbinom(n_row, 1, p) # Is this right?
+    bernoulli_variates <- rbinom(n_row, 1, p) # Is this right?
     
     # Sampling each column (aka influence function of each ATT(g,t)) with the 
     # Bernoulli Variates
-    multiplied_if <- inffunc * bernoulli_weight
+    multiplied_if <- inffunc_matrix * bernoulli_variates
     
-    # Bootstrap-Sampling-Distribution of influence function (nx(g*(t-1)) matrix)
+    # Bootstrap-Sampling-Distribution of influence function (n x (g*(t-1)) matrix)
     boot_results[i, ] <- colMeans(multiplied_if)
   
   } # end of loop
@@ -243,32 +247,39 @@ bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
 mat <- as.matrix(if_matrix)
 test <-  multiplier_bootstrap(mat, 1000)
 test1 <- bootstrapping_algorithm(mat, iter = 1000)
+delta <- test - test1
+colMeans(as.matrix(delta))
 
-#' Step 1.2: Use the function to calculate the limiting distribution and scale it 
-#'           with sqrt(n) [write reason for this here]. The limiting distribution
-#'           equals R*(g,t) in the proposed Algorithm 1 in CS. The calculations
-#'           are bootstrapped on county-level as the Bernoulli-Variates are 
-#'           cluster-specific.
+## Step 3.1.2: Use of the MBoot Function ---------------------------------------
+
+#' Use the function to calculate the limiting distribution and scale it 
+#' with sqrt(n) [write reason for this here]. The limiting distribution equals 
+#' R*(g,t) in the proposed Algorithm 1 in CS. The calculations are bootstrapped 
+#' on county-level as the Bernoulli-Variates are cluster-specific.
 
 # Own
 data_boot <-  qwi
-cluster_amount <- length(unique(data_boot$county_id))
-dist <-  sqrt(cluster_amount) * bootstrapping_algorithm(if_matrix)
+
+dist <-  sqrt(cluster) * bootstrapping_algorithm(if_matrix)
 dist <- as.matrix(dist)
 
 # Given Multiplier function
 if_matrix <- as.matrix(if_matrix)
-dist_given <-  sqrt(cluster_amount) * BMisc::multiplier_bootstrap(if_matrix, biters = 1000)
+dist_given <-  sqrt(cluster) * BMisc::multiplier_bootstrap(if_matrix, biters = 1000)
 dist_given <- as.matrix(dist_given)
 
-#' Step 2: Calculate the bootstrap estimator of the standard deviation (thus,
-#'         standard error)
-#'         [Note to myself: I do not need to multiply the results of the 
-#'         by itself as each row already resembles a joint distribution of an
-#'         estimator. Thus, I can simply calculate the standard estimator for
-#'         each column.]
+## Step 3.2:  Bootstrap Estimator of the Standard Deviation --------------------
+#' Calculate the bootstrap estimator of the standard deviation (thus,standard 
+#' error) [Note to myself: I do not need to multiply the results of the by 
+#' itself as each row already resembles a joint distribution of an estimator. 
+#' Thus, I can simply calculate the standard estimator for each column.]
 
-# Define function to calculate the the standard error for the limiting distribution
+# Define function to calculate the the standard error for the distribution. This
+# is done by calculating the IQR of the distribution and standardizing it by 
+# dividing it by the IQR of the standard normal distribution. This is the
+# non-parametric way to calculate the standard error, which is more robust than
+# the parametric sd and mean.
+
 calculate_boots_sigma <- function(x) {
   (quantile(x, probs = .75,  na.rm = TRUE) - quantile(x, probs = .25, na.rm = TRUE)) /
     (qnorm(.75) - qnorm(.25))
@@ -278,8 +289,8 @@ calculate_boots_sigma <- function(x) {
 boots_sigma <- apply(dist, 2, calculate_boots_sigma) # [Find another way to compute this.]
 boots_sigma_given <- apply(dist_given, 2, calculate_boots_sigma)
 
-#' Step 3: Calculate the t-test for each limiting distribution
-#' 
+## Step 3.3: Calculate the t-test for each limiting distribution ---------------
+
 # Divide each distribution through the corresponding bootstrap sigma and take
 # the absolute via loop instead of apply()
 dist_c <- matrix(0, nrow = nrow(dist), ncol = ncol(dist))
@@ -301,19 +312,43 @@ for ( k in 1:nrow(dist_c) ) {
 # results_t_test       <- apply(dist, MARGIN = 1, FUN = t_test)
 # results_t_test_given <- apply(dist_given, MARGIN = 1, FUN = t_test)
 
-# Step 4: Calculation of the empirical (1-alpha)-quantile of the B bootstrap 
-#         draws of t-test
+## Step 3.4:  Calculation of c_hat ---------------------------------------------
+
+# Calculation of the c_hat empirical (1-alpha)-quantile of the B bootstrap 
+# draws of t-test
+
 alpha <- .05
 c_hat <- quantile(t_test, 1 - alpha, na.rm = TRUE)
 
 
+params <- DIDparams(yname = "lnEmp",
+                    tname = "date_y",
+                    idname = "county_id",
+                    gname = "group",
+                    xformla = ~white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc,
+                    data = qwi,
+                    panel = TRUE,
+                    allow_unbalanced_panel = FALSE,
+                    control_group = "nevertreated",
+                    anticipation = 0,
+                    weightsname = NULL,
+                    alp = 0.05,
+                    bstrap = TRUE,
+                    cband = TRUE,
+                    biters = 1000,
+                    clustervars = NULL,
+                    est_method = "dr",
+                    base_period = "varying",
+                    print_details = FALSE,
+                    pl = FALSE,
+                    cores = 1)
 
+test <- mboot(if_matrix, DIDparams = params)
 
-
-
+out1$
 # filter
 
-out1$c
+out1$
 
 
 # ---- free space --------------------------------------------------------------
@@ -324,6 +359,8 @@ out1 <- did::att_gt(yname = "lnEmp",
                     gname = "group",
                     xformla = ~white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc,
                     data = qwi,
+                    control_group = "nevertreated",
+                    bstrap = FALSE,
                     est_method = "dr",
                     base_period = "varying")
 summary(out1)
