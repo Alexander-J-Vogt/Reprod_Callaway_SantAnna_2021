@@ -31,7 +31,7 @@ qwi <- qwi |>
 # identical(qwi, qwi_test)
 
 ################################################################################
-## Start with the replication of the group-time average treatment effect
+## ---- Start with the replication of the group-time average treatment effect
 ################################################################################
 
 #' Idea:
@@ -291,13 +291,15 @@ c_hat <- qnorm(1 - .05)
 
 # ---- Calculation of standard error without bootstrap -------------------------
 
+#' Multiplier Bootstrapping is relevant for confidence intervals and
+#' replacing values that are too small in the v
 if_matrix <- as.matrix(if_matrix)
 # How to get variance of inffun:
 # https://cran.r-project.org/web/packages/lava/vignettes/influencefunction.
 
 covariance_direct <- t(if_matrix) %*% if_matrix * (1 / n_unique)
 
-# Basic matrix calculation to get variance
+# Basic matrix calculation to get variance and standard error
 variance <- diag(covariance_direct / n_unique)
 se <-  sqrt(variance)
 
