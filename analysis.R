@@ -182,6 +182,8 @@ for (g in grouplist) {
 
 }
 
+
+
 # --- Proposed Algorithm in CS -------------------------------------------------
 
 # Step 1.1: Program function for mutliplier bootstrapping in order to create
@@ -227,20 +229,26 @@ bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
   
 } # end of bootstrapping algorithm
 
-# mat <- as.matrix(if_matrix)
-test <-  multiplier_bootstrap(if_matrix, 1000)
-
+mat <- as.matrix(if_matrix)
+test <-  multiplier_bootstrap(mat, 1000)
+test1 <- bootstrapping_algorithm(mat, iter = 1000)
 
 #' Step 1.2: Use the function to calculate the limiting distribution and scale it 
 #'           with sqrt(n) [write reason for this here]. The limiting distribution
 #'           equals R*(g,t) in the proposed Algorithm 1 in CS. The calculations
 #'           are bootstrapped on county-level as the Bernoulli-Variates are 
 #'           cluster-specific.
-           
+
+# Own
 data_boot <-  qwi
-n <- length(unique(data_boot$county_id))
-lim_dist <-  sqrt(n) * bootstrapping_algorithm(if_matrix)
-lim_dist <- as.matrix(lim_dist)
+cluster_amount <- length(unique(data_boot$county_id))
+dist <-  sqrt(cluster_amount) * bootstrapping_algorithm(if_matrix)
+dist <- as.matrix(lim_dist)
+
+# Given Multiplier function
+if_matrix <- as.matrix(if_matrix)
+dist_given <-  sqrt(cluster_amount) * BMisc::multiplier_bootstrap(if_matrix, biters = 1000)
+dist_given <- as.matrix(lim_dist_given)
 
 #' Step 2: Calculate the bootstrap estimator of the standard deviation (thus,
 #'         standard error)
@@ -256,22 +264,25 @@ calculate_boots_sigma <- function(x) {
 }
 
 # Calculate standard estimator based on the bootstrap distribution
-boots_sigma <- apply(lim_dist, 2, calculate_boots_sigma) # [Find another way to compute this.]
+boots_sigma <- apply(dist, 2, calculate_boots_sigma) # [Find another way to compute this.]
+boots_sigma_given <- apply(dist_given, 2, calculate_boots_sigma)
 
 #' Step 3: Calculate the t-test for each limiting distribution
 #' 
 
 t_test <- function(column) { max( abs( column / boots_sigma ) ) }
 
-results_t_test <- apply(lim_dist, 2, FUN = t_test)
-
-
+results_t_test       <- apply(dist, 2, FUN = t_test)
+results_t_test_given <- apply(dist_given, 2, FUN = t_test)
 c_hat <- qnorm(1 - .05)
 
+
 # ---- Calculation of se without bootstrap
+t <- as.matrix(if_matrix)
+sum <- t(t) %*% t
+dim(sum)
 
-sum <- t(if_matrix) %*% if_matrix
-
+sigma_direct <- diag(sqrt(sum/nrow(sum)))
 
 att$att.inf.func
 out1 <- did::att_gt(yname = "lnEmp",
