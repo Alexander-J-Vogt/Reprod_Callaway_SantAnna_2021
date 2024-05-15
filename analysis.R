@@ -295,23 +295,19 @@ for ( k in 1:nrow(dist_c) ) {
   t_test[k, ] <- max(dist_c[k, ])  
 }
 
-
 # t_test <- function(column) { max( abs( column / boots_sigma ) ) }
 # 
 # 
 # results_t_test       <- apply(dist, MARGIN = 1, FUN = t_test)
 # results_t_test_given <- apply(dist_given, MARGIN = 1, FUN = t_test)
 
-# Step 4: Calculation of the empirical (1-alpha)-quantile of the B bootstrap
+# Step 4: Calculation of the empirical (1-alpha)-quantile of the B bootstrap 
 #         draws of t-test
 alpha <- .05
 c_hat <- quantile(t_test, 1 - alpha, na.rm = TRUE)
 
 
 
-
-
-# ---- Calculation of standard error without bootstrap -------------------------
 
 
 
