@@ -269,14 +269,22 @@ boots_sigma_given <- apply(dist_given, 2, calculate_boots_sigma)
 
 #' Step 3: Calculate the t-test for each limiting distribution
 #' 
+dist_c <- matrix(0, nrow = nrow(dist), ncol = ncol(dist))
 
+for (j in 1:ncol(dist)) {
+  dist_c[, j] <- abs(dist[, j] / boots_sigma[j])
+}
 
+c_hat <- matrix(0, nrow = 1, ncol = ncol(dist_c))
 
+for (k in 1:ncol(dist_c)) {
+  c_hat <- max(dist_c[, k])  
+}
 
 t_test <- function(column) { max( abs( column / boots_sigma ) ) }
 
-results_t_test       <- apply(dist, margin = 1, FUN = t_test)
-results_t_test_given <- apply(dist_given, margin = 1, FUN = t_test)
+results_t_test       <- apply(dist, MARGIN = 1, FUN = t_test)
+results_t_test_given <- apply(dist_given, MARGIN = 1, FUN = t_test)
 
 c_hat <- qnorm(1 - .05)
 
