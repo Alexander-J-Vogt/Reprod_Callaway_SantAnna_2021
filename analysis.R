@@ -63,7 +63,7 @@ att.gt.ls <- list()
 # create empty matrix
 number <- 1
 n_unique <- length(unique(qwi$county_id))
-nr_group <- length(grouplist)
+nr_group <- length(grouplistl)
 nr_times <- length(timelist)
 
 
@@ -243,12 +243,12 @@ test1 <- bootstrapping_algorithm(mat, iter = 1000)
 data_boot <-  qwi
 cluster_amount <- length(unique(data_boot$county_id))
 dist <-  sqrt(cluster_amount) * bootstrapping_algorithm(if_matrix)
-dist <- as.matrix(lim_dist)
+dist <- as.matrix(dist)
 
 # Given Multiplier function
 if_matrix <- as.matrix(if_matrix)
 dist_given <-  sqrt(cluster_amount) * BMisc::multiplier_bootstrap(if_matrix, biters = 1000)
-dist_given <- as.matrix(lim_dist_given)
+dist_given <- as.matrix(dist_given)
 
 #' Step 2: Calculate the bootstrap estimator of the standard deviation (thus,
 #'         standard error)
@@ -277,12 +277,17 @@ results_t_test_given <- apply(dist_given, 2, FUN = t_test)
 c_hat <- qnorm(1 - .05)
 
 
-# ---- Calculation of se without bootstrap
-t <- as.matrix(if_matrix)
-sum <- t(t) %*% t
-dim(sum)
+# ---- Calculation of standard error without bootstrap -------------------------
+if_matrix <- as.matrix(if_matrix)
+# How to get variance of inffun:
+# https://cran.r-project.org/web/packages/lava/vignettes/influencefunction.
 
-sigma_direct <- diag(sqrt(sum/nrow(sum)))
+covariance_direct <- t(if_matrix) %*% if_matrix * (1 / n_unique)
+
+# Basic matrix calculation to get variance
+variance <- diag(covariance_direct / n_unique)
+se <-  sqrt(variance)
+
 
 
 # ---- free space --------------------------------------------------------------
