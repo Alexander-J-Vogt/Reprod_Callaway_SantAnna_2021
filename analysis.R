@@ -5,6 +5,9 @@
 # Remove exisitng environment
 rm(list = ls(all = TRUE))
 
+# set seed for replication
+set.seed(1234)
+
 # libraries
 library(tidyverse)
 library(data.table)
@@ -98,7 +101,7 @@ for (g in grouplist) {
     data$c_ <- ifelse(data$group == 0, 1, 0)
     
     # Select data in pre- & post-treatment period for relevant group and never-treated
-    data <- subset(data, date_y %in% c(reference_year, t + 1)) # must be replaced by reference year and current period in loop
+    data <- subset(data, date_y %in% c(reference_year, t + 1)) 
     
     # indicator for influence matrix
     index_data    <- data[!duplicated(data$county_id),] # loop 
@@ -179,12 +182,11 @@ for (g in grouplist) {
 
 }
 
-attgt.df
-
-
 # --- Proposed Algorithm in CS -------------------------------------------------
 
-# Step 1: 
+# Step 1.1: Program function for mutliplier bootstrapping in order to create
+#           limiting distribution of the influence function for each ATT(g,t)
+#           estimator
 
 
 bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
@@ -204,10 +206,10 @@ bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
     
     # Calculate Bernoulli Variates, which are used to select the influence 
     # function values of each calculated ATT(g,t) f
-    # Advantage to common Bootstraping: No resampling!
+    # Advantage to common Bootstrapping: No re-sampling!
     
-    # iid Bernouli Variates $${V_i}$$ according to Mammen (1993)
-    kappa <- (sqrt(5) +1) / 2
+    #' iid Bernouli Variates $$${V_i}$$$ according to Mammen (1993)
+    kappa <- ( sqrt(5) + 1 ) / 2
     p <- kappa / sqrt(5)
     bernoulli_weight <- rbinom(n_row, 1, p) # Is this right?
     
@@ -225,31 +227,50 @@ bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
   
 } # end of bootstrapping algorithm
 
+# mat <- as.matrix(if_matrix)
+test <-  multiplier_bootstrap(if_matrix, 1000)
 
-# Mutliplicate with sqrt(n) in order to yield adjusted limiting bootstrapping 
-# distribution of the influence function
-# Clustered on County level
 
+#' Step 1.2: Use the function to calculate the limiting distribution and scale it 
+#'           with sqrt(n) [write reason for this here]. The limiting distribution
+#'           equals R*(g,t) in the proposed Algorithm 1 in CS. The calculations
+#'           are bootstrapped on county-level as the Bernoulli-Variates are 
+#'           cluster-specific.
+           
+data_boot <-  qwi
 n <- length(unique(data_boot$county_id))
 lim_dist <-  sqrt(n) * bootstrapping_algorithm(if_matrix)
 lim_dist <- as.matrix(lim_dist)
 
-!is.na(lim_dist)
-# Covariance Matrix
-cov <- cov(lim_dist)
+#' Step 2: Calculate the bootstrap estimator of the standard deviation (thus,
+#'         standard error)
+#'         [Note to myself: I do not need to multiply the results of the 
+#'         by itself as each row already resembles a joint distribution of an
+#'         estimator. Thus, I can simply calculate the standard estimator for
+#'         each column.]
 
-calculate_boots_sigma <- function(b) {
-  (quantile(b, probs = .75,  na.rm = TRUE) - quantile(b, probs = .25, na.rm = TRUE)) /
+# Define function to calculate the the standard error for the limiting distribution
+calculate_boots_sigma <- function(x) {
+  (quantile(x, probs = .75,  na.rm = TRUE) - quantile(x, probs = .25, na.rm = TRUE)) /
     (qnorm(.75) - qnorm(.25))
 }
 
 # Calculate standard estimator based on the bootstrap distribution
-boots_sigma <- map(lim_dist, calculate_boots_sigma)
+boots_sigma <- apply(lim_dist, 2, calculate_boots_sigma) # [Find another way to compute this.]
+
+#' Step 3: Calculate the t-test for each limiting distribution
+#' 
+
+t_test <- function(column) { max( abs( column / boots_sigma ) ) }
+
+results_t_test <- apply(lim_dist, 2, FUN = t_test)
 
 
+c_hat <- qnorm(1 - .05)
 
+# ---- Calculation of se without bootstrap
 
-
+sum <- t(if_matrix) %*% if_matrix
 
 
 att$att.inf.func
@@ -265,3 +286,4 @@ summary(out1)
 
 
 ggdid((out1))
+
