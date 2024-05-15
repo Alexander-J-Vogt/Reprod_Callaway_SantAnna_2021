@@ -184,18 +184,14 @@ attgt.df
 
 # --- Proposed Algorithm in CS -------------------------------------------------
 
-# Step 1: Define sequence of 
-
-
-
-data_boot <- qwi
-
+# Step 1: 
 
 
 bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
   
   # Setup
   # iter <-  1000
+  # Determine number of rows and columns for the multiplier bootstrap algorithm
   inffunc <- as.matrix(inffunc_matrix)
   n_row <- nrow(inffunc_matrix)
   n_col <- ncol(inffunc_matrix)
@@ -203,6 +199,7 @@ bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
   # Empty matrix, which is later filled with the bootstrap 
   boot_results <- Matrix::Matrix(0, nrow = iter, ncol = n_col)
   
+  # (1) & (2) of Algorithm 1 in CS
   for ( i in 1:iter ) {
     
     # Calculate Bernoulli Variates, which are used to select the influence 
@@ -212,7 +209,7 @@ bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
     # iid Bernouli Variates $${V_i}$$ according to Mammen (1993)
     kappa <- (sqrt(5) +1) / 2
     p <- kappa / sqrt(5)
-    bernoulli_weight <- rbinom(n_row, 1, p) # Is this rigth?
+    bernoulli_weight <- rbinom(n_row, 1, p) # Is this right?
     
     # Sampling each column (aka influence function of each ATT(g,t)) with the 
     # Bernoulli Variates
@@ -231,7 +228,7 @@ bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
 
 # Mutliplicate with sqrt(n) in order to yield adjusted limiting bootstrapping 
 # distribution of the influence function
-# Clustered on County level^
+# Clustered on County level
 
 n <- length(unique(data_boot$county_id))
 lim_dist <-  sqrt(n) * bootstrapping_algorithm(if_matrix)
@@ -245,9 +242,10 @@ calculate_boots_sigma <- function(b) {
   (quantile(b, probs = .75,  na.rm = TRUE) - quantile(b, probs = .25, na.rm = TRUE)) /
     (qnorm(.75) - qnorm(.25))
 }
+
 # Calculate standard estimator based on the bootstrap distribution
 boots_sigma <- map(lim_dist, calculate_boots_sigma)
-sd <- apply(boot_results, FUN = sd, ...)
+
 
 
 
