@@ -270,14 +270,19 @@ boots_sigma_given <- apply(dist_given, 2, calculate_boots_sigma)
 #' Step 3: Calculate the t-test for each limiting distribution
 #' 
 
+
+
+
 t_test <- function(column) { max( abs( column / boots_sigma ) ) }
 
-results_t_test       <- apply(dist, 2, FUN = t_test)
-results_t_test_given <- apply(dist_given, 2, FUN = t_test)
+results_t_test       <- apply(dist, margin = 1, FUN = t_test)
+results_t_test_given <- apply(dist_given, margin = 1, FUN = t_test)
+
 c_hat <- qnorm(1 - .05)
 
 
 # ---- Calculation of standard error without bootstrap -------------------------
+
 if_matrix <- as.matrix(if_matrix)
 # How to get variance of inffun:
 # https://cran.r-project.org/web/packages/lava/vignettes/influencefunction.
