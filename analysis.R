@@ -284,6 +284,8 @@ dim(sum)
 
 sigma_direct <- diag(sqrt(sum/nrow(sum)))
 
+
+# ---- free space --------------------------------------------------------------
 att$att.inf.func
 out1 <- did::att_gt(yname = "lnEmp",
                     tname = "date_y",
