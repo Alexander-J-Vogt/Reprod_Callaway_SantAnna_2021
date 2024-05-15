@@ -73,9 +73,8 @@ if_matrix <- Matrix::Matrix(data = 0, nrow = n_unique,
 
 
 
-# ---- Calculation and later loop ----------------------------------------------
+#  1. ATT(g,t) via double loop -------------------------------------------------
 
-# copy of qwi
 data_origin <- qwi
 
 for (g in grouplist) {
@@ -182,11 +181,23 @@ for (g in grouplist) {
 
 }
 
+# 2. Standard Errors of ATT(g,t) -----------------------------------------------
 
+#' Multiplier Bootstrapping is relevant for confidence intervals and
+#' replacing values that are too small in the v
+if_matrix <- as.matrix(if_matrix)
+# How to get variance of inffun:
+# https://cran.r-project.org/web/packages/lava/vignettes/influencefunction.
 
-# --- Proposed Algorithm in CS -------------------------------------------------
+vcov_matrix <- t(if_matrix) %*% if_matrix * (1 / n_unique)
 
-# Step 1.1: Program function for mutliplier bootstrapping in order to create
+# Basic matrix calculation to get variance and standard error
+var <- diag(vcov_matrix / n_unique)
+se <-  sqrt(var)
+
+# 3. Statistics via bootstrapping ----------------------------------------------
+
+# Step 1.1: Program function for multiplier bootstrapping in order to create
 #           limiting distribution of the influence function for each ATT(g,t)
 #           estimator
 
@@ -269,40 +280,44 @@ boots_sigma_given <- apply(dist_given, 2, calculate_boots_sigma)
 
 #' Step 3: Calculate the t-test for each limiting distribution
 #' 
+# Divide each distribution through the corresponding bootstrap sigma and take
+# the absolute via loop instead of apply()
 dist_c <- matrix(0, nrow = nrow(dist), ncol = ncol(dist))
 
 for (j in 1:ncol(dist)) {
   dist_c[, j] <- abs(dist[, j] / boots_sigma[j])
 }
 
-c_hat <- matrix(0, nrow = 1, ncol = ncol(dist_c))
+# Take the maximum value of each bootstrap in order to calculate the t-test
+t_test <- matrix(0, nrow = nrow(dist_c), ncol = 1)
 
-for (k in 1:ncol(dist_c)) {
-  c_hat <- max(dist_c[, k])  
+for ( k in 1:nrow(dist_c) ) {
+  t_test[k, ] <- max(dist_c[k, ])  
 }
 
-t_test <- function(column) { max( abs( column / boots_sigma ) ) }
 
-results_t_test       <- apply(dist, MARGIN = 1, FUN = t_test)
-results_t_test_given <- apply(dist_given, MARGIN = 1, FUN = t_test)
+# t_test <- function(column) { max( abs( column / boots_sigma ) ) }
+# 
+# 
+# results_t_test       <- apply(dist, MARGIN = 1, FUN = t_test)
+# results_t_test_given <- apply(dist_given, MARGIN = 1, FUN = t_test)
 
-c_hat <- qnorm(1 - .05)
+# Step 4: Calculation of the empirical (1-alpha)-quantile of the B bootstrap
+#         draws of t-test
+alpha <- .05
+c_hat <- quantile(t_test, 1 - alpha, na.rm = TRUE)
+
+
+
 
 
 # ---- Calculation of standard error without bootstrap -------------------------
 
-#' Multiplier Bootstrapping is relevant for confidence intervals and
-#' replacing values that are too small in the v
-if_matrix <- as.matrix(if_matrix)
-# How to get variance of inffun:
-# https://cran.r-project.org/web/packages/lava/vignettes/influencefunction.
 
-covariance_direct <- t(if_matrix) %*% if_matrix * (1 / n_unique)
 
-# Basic matrix calculation to get variance and standard error
-variance <- diag(covariance_direct / n_unique)
-se <-  sqrt(variance)
+# filter
 
+out1$c
 
 
 # ---- free space --------------------------------------------------------------
