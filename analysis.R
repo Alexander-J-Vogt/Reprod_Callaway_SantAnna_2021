@@ -356,14 +356,25 @@ for ( i in seq_along(grouplist) ) {
 
 simple_aggte_df <- merge(attgt.df, simple_weights, by.x = "group" )  
 relevant_att <- which(simple_aggte_df$year >= simple_aggte_df$group)
-
 relevant_attgt <- simple_aggte_df[relevant_att,]
-
 simple_att_est <- sum(relevant_attgt$attgt * relevant_attgt$probs) / sum(relevant_attgt$probs)
 
-group <- simple_aggte_df[group == 2004 & year <= (2004 - 1),]
+# recover corresponding se
+simple_if        <- if_matrix[, relevant_att]
+simple_weights <- simple_aggte_df[relevant_att,]
+simple_weights <- simple_aggte_df$probs / sum(relevant_attgt$probs)
+simple_weights <- simple_weights[relevant_att]
 
 
+simple_weighted_if <- simple_if %*% simple_weights
+
+simple_weighted_if <- as.matrix(simple_weighted_if)
+
+vcov_matrix_simple <- t(simple_weighted_if) %*% simple_weighted_if * (1 / n_unique)
+
+# Basic matrix calculation to get variance and standard error
+var <- diag(vcov_matrix_simple / n_unique)
+se <-  sqrt(var)
 
 
 
@@ -396,12 +407,19 @@ pg <- sapply(originalglist, function(g) mean(1*(qwi[,group]==g)))
 
 # length of this is equal to number of groups
 pgg <- pg
-
+max_e = Inf
 # same but length is equal to the number of ATT(g,t)
 pg <- pg[match(group, glist)]
 
+keepers <- which(group <= t) #& t<= (group + max_e)) ### added second condition to allow for limit on longest period included in att
+
+# n x 1 vector of group variable
+G <-  unlist(lapply(qwi[,group], orig2t))
 
 
+
+  
+  
 params <- DIDparams(yname = "lnEmp",
                     tname = "date_y",
                     idname = "county_id",
