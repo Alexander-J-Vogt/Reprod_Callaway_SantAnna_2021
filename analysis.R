@@ -321,6 +321,44 @@ alpha <- .05
 c_hat <- quantile(t_test, 1 - alpha, na.rm = TRUE)
 
 
+# 4. Aggregated ATT(g,t) -------------------------------------------------------
+
+## 4.1 Simple Weighted ATT(g,t) ------------------------------------------------
+
+# Calculate the population size by group
+
+data_agg <- qwi
+
+simple_weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 4))
+colnames(simple_weights) <- c("group", "size", "probs", "theta_o_w")
+
+for ( i in seq_along(grouplist) ) {
+  
+  # select group
+  year <- grouplist[i]
+  
+  # calculate group size and prob. of being in the group, 
+  # i.e., group size divided by unique population size
+  simple_weights[i, 1] <- year
+  simple_weights[i, 2] <- nrow(data_agg[group == year & date_y == year, ])
+  simple_weights[i, 3] <- simple_weights[i, 2] / n_unique
+  
+}
+
+kappa <- sum(simple_weights[,2]) / n_unique
+
+for ( i in seq_along(grouplist) ) {
+  
+  # calculate the simple weight
+  simple_weights[i, 4] <- simple_weights[i, 3] / kappa
+  
+}
+
+
+simple_aggte_df <- merge(attgt.df, simple_weights, by.x = "group" )  
+
+
+
 params <- DIDparams(yname = "lnEmp",
                     tname = "date_y",
                     idname = "county_id",
