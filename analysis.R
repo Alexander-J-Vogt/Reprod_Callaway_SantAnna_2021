@@ -354,9 +354,12 @@ for ( i in seq_along(grouplist) ) {
   
 }
 
-
 simple_aggte_df <- merge(attgt.df, simple_weights, by.x = "group" )  
+relevant_att <- which(simple_aggte_df$year >= simple_aggte_df$group)
 
+relevant_attgt <- simple_aggte_df[relevant_att,]
+
+simple_att_est <- sum(relevant_attgt$attgt * relevant_attgt$probs) / sum(relevant_attgt$probs)
 
 group <- simple_aggte_df[group == 2004 & year <= (2004 - 1),]
 
@@ -364,6 +367,38 @@ group <- simple_aggte_df[group == 2004 & year <= (2004 - 1),]
 
 
 
+originalt <- qwi$date_y
+originalgroup <- qwi$group
+originalglist <- grouplist
+originaltlist <- timelist
+
+# function to switch from "new" t values to  original t values
+t2orig <- function(t) {
+  unique(c(originalgtlist,0))[which(c(uniquet,0)==t)]
+}
+# function to switch between "original"
+#  t values and new t values
+orig2t <- function(orig) {
+  new_t <- c(uniquet,0)[which(unique(c(originalgtlist,0))==orig)]
+  out <- ifelse(length(new_t) == 0, NA, new_t)
+  out
+}
+t <- sapply(originalt, orig2t)
+group <- sapply(originalgroup, orig2t)
+glist <- sapply(originalglist, orig2t)
+tlist <- unique(t)
+maxT <- max(t)
+
+
+# we can work in overall probabilities because conditioning will cancel out
+# cause it shows up in numerator and denominator
+pg <- sapply(originalglist, function(g) mean(1*(qwi[,group]==g)))
+
+# length of this is equal to number of groups
+pgg <- pg
+
+# same but length is equal to the number of ATT(g,t)
+pg <- pg[match(group, glist)]
 
 
 
