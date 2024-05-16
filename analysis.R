@@ -358,6 +358,14 @@ for ( i in seq_along(grouplist) ) {
 simple_aggte_df <- merge(attgt.df, simple_weights, by.x = "group" )  
 
 
+group <- simple_aggte_df[group == 2004 & year <= (2004 - 1),]
+
+
+
+
+
+
+
 
 params <- DIDparams(yname = "lnEmp",
                     tname = "date_y",
@@ -380,6 +388,8 @@ params <- DIDparams(yname = "lnEmp",
                     print_details = FALSE,
                     pl = FALSE,
                     cores = 1)
+
+
 
 test <- mboot(if_matrix, DIDparams = params)
 
@@ -406,3 +416,4 @@ summary(out1)
 
 ggdid((out1))
 
+aggte(out1, type = "simple")
