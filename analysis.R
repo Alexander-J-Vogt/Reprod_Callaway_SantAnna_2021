@@ -344,7 +344,6 @@ for ( i in seq_along(grouplist) ) {
 }
 
 
-sum(relevant_attgt$probs)
 # Preparing the attgt.gt and combinging it with the probs. of being a specific group
 simple_aggte_df <- merge(attgt.df, simple_weights, by.x = "group" )  
 relevant_att <- which(simple_aggte_df$year >= simple_aggte_df$group)
@@ -355,7 +354,7 @@ kappa <- sum(relevant_attgt$probs)
 # Nominator: ATT(g,t) weighted with corresponding probability
 # Denominator: Sum of probability of each ATT(g,t) in post-treatment period 
 # taken over all groups
-simple_att_est <- sum(relevant_attgt$attgt * relevant_attgt$theta_o_w) / kappa
+simple_att_est <- sum(relevant_attgt$attgt * relevant_attgt$probs) / kappa
 
 # Recovering the standard error for the overall ATT weighted by the relative 
 # size of the group
@@ -375,28 +374,29 @@ se <- sqrt(var/nrow(simple_weighted_if))
 
 ####### [WARNING]: Might need some adjustment as SE is too small: What about WIF?
 
-## 4.2 Group-Time ATT(g,t)
+## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
 
 time_max <- max(timelist)
 
-# Group-treatment effects
+# Group-treatment effects (gte)
 gte_attgt_df <- attgt.df 
-theta_sel <- rep(NA, nrow(gte_attgt_df))
+theta_sel    <- rep(NA, nrow(gte_attgt_df))
 gte_attgt_df <- cbind(gte_attgt_df,theta_sel)
 gte_attgt_df <- gte_attgt_df[relevant_att, ]
 
-# Group specific weights
-for ( i in 1:nrow(gte_attgt_df)) {
-  
-  gte_attgt_df[i, "theta_sel"] <- 1 / (time_max - gte_attgt_df[i, "group"] - 1)
-  
+# Group specific ATT
+gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
+colnames(gte_results) <- c("group", "gte", "se")
+
+for ( i in 1:nrow(gte_results) ) {
+  grouptime <- grouplist[i]
+  gte_results[i, "group"] <- grouptime
+  gte_results[i, "gte" ]  <- mean(gte_attgt_df[gte_attgt_df$group == grouptime, "attgt"])
 }
 
-gte_results <- data.frame(matrix(0, nrow = nrow(grouplist), 3))
-colnames(gte_results) <- c("group", "gatt", "se")
+# Aggregated GTE by population weights
+agg_gte_results <- sum(gte_results$gte * simple_weights$probs) / sum(simple_weights$probs)
 
-
-mean(gte_attgt_df[gte_attgt_df$group == 2004, "attgt"])
 
 
 ## Understand data transformation
