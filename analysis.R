@@ -30,15 +30,6 @@ qwi <- qwi |>
 ## ---- Start with the replication of the group-time average treatment effect
 ################################################################################
 
-#' Idea:
-#' 
-#' Loop over the different groups and than different time periods in order to
-#' yield the ATT for each year after the reference period. 
-#' Core problem: What is the reference period? - Reference period is g-1 
-#' How do you calculate the ATT for pre-treatment periods?
-#'
-
-
 #---- Start up & Define variables ----------------------------------------------
 
 # covariates formula
@@ -396,6 +387,19 @@ for ( i in 1:nrow(gte_results) ) {
 
 # Aggregated GTE by population weights
 agg_gte_results <- sum(gte_results$gte * simple_weights$probs) / sum(simple_weights$probs)
+
+min_time <- min(timelist)
+# Recover Standard errors
+data_gte <- arrange(qwi, date_y, county_id)
+index_g2004_row <- which(data_gte$date_y == min_time & (data_gte$group == 2004 | data_gte$group == 0))
+index_g2004_col <- which(attgt.df$group == 2004 & attgt.df$year >= 2004)
+group_if <- if_matrix[index_g2004, index_g2004_col]
+
+group_if_weighted <- group_if %*% as.vector(simple_aggte_df[index_g2004_col,"probs"])
+
+
+# Check if _matrix! Does each row consist of that what I think it does?
+dim(if_matrix)
 
 
 
