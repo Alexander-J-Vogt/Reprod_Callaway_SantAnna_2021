@@ -357,28 +357,25 @@ kappa <- sum(relevant_attgt$probs)
 # taken over all groups
 simple_att_est <- sum(relevant_attgt$attgt * relevant_attgt$theta_o_w) / kappa
 
-# recover corresponding se
+# Recovering the standard error for the overall ATT weighted by the relative 
+# size of the group
+
+# Prepare influence function by sleceting the relevant columns/ATT(g,t)
 simple_if      <- if_matrix[, relevant_att]
 simple_weights <- simple_aggte_df[relevant_att,]
 simple_weights <- simple_aggte_df$probs / sum(relevant_attgt$probs)
 simple_weights <- simple_weights[relevant_att]
 
-
+# Calculate for each county a weighted influence function
 simple_weighted_if <- simple_if %*% simple_weights
 
-var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(simple_weighted_if)^2)))
-se <- sqrt(var)
+# Calculate actual standard error of the aggregated ATT
+var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(simple_weighted_if))^2))
+se <- sqrt(var/nrow(simple_weighted_if))
 
-simple_weighted_if <- as.matrix(simple_weighted_if)
+####### WARNING: Might need some adjustment as SE is too small: What about WIF?
 
-
-
-
-vcov_matrix_simple <- t(simple_weighted_if) %*% simple_weighted_if * (1 / n_unique)
-
-# Basic matrix calculation to get variance and standard error
-var <- diag(vcov_matrix_simple / n_unique)
-se <-  sqrt(var)
+## 4.2 Group-Time ATT(g,t)
 
 
 
