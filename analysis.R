@@ -383,14 +383,20 @@ time_max <- max(timelist)
 gte_attgt_df <- attgt.df 
 theta_sel <- rep(NA, nrow(gte_attgt_df))
 gte_attgt_df <- cbind(gte_attgt_df,theta_sel)
-# Group specific weights
+gte_attgt_df <- gte_attgt_df[relevant_att, ]
 
+# Group specific weights
 for ( i in 1:nrow(gte_attgt_df)) {
   
   gte_attgt_df[i, "theta_sel"] <- 1 / (time_max - gte_attgt_df[i, "group"] - 1)
   
 }
 
+gte_results <- data.frame(matrix(0, nrow = nrow(grouplist), 3))
+colnames(gte_results) <- c("group", "gatt", "se")
+
+
+mean(gte_attgt_df[gte_attgt_df$group == 2004, "attgt"])
 
 
 ## Understand data transformation
