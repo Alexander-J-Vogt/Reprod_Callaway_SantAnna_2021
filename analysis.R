@@ -373,12 +373,27 @@ simple_weighted_if <- simple_if %*% simple_weights
 var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(simple_weighted_if))^2))
 se <- sqrt(var/nrow(simple_weighted_if))
 
-####### WARNING: Might need some adjustment as SE is too small: What about WIF?
+####### [WARNING]: Might need some adjustment as SE is too small: What about WIF?
 
 ## 4.2 Group-Time ATT(g,t)
 
+time_max <- max(timelist)
+
+# Group-treatment effects
+gte_attgt_df <- attgt.df 
+theta_sel <- rep(NA, nrow(gte_attgt_df))
+gte_attgt_df <- cbind(gte_attgt_df,theta_sel)
+# Group specific weights
+
+for ( i in 1:nrow(gte_attgt_df)) {
+  
+  gte_attgt_df[i, "theta_sel"] <- 1 / (time_max - gte_attgt_df[i, "group"] - 1)
+  
+}
 
 
+
+## Understand data transformation
 originalt <- qwi$date_y
 originalgroup <- qwi$group
 originalglist <- grouplist
@@ -470,4 +485,4 @@ summary(out1)
 
 ggdid((out1))
 
-aggte(out1, type = "simple")
+aggte(out1, type = "group")
