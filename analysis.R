@@ -343,22 +343,19 @@ for ( i in seq_along(grouplist) ) {
   simple_weights[i, 3] <- simple_weights[i, 2] / n_unique
 }
 
-kappa <- sum(simple_weights[,5]) 
-
-for ( i in seq_along(grouplist) ) {
-  # calculate the simple weight
-  simple_weights[i, 4] <- simple_weights[i, 3] / kappa
-}
 
 sum(relevant_attgt$probs)
 # Preparing the attgt.gt and combinging it with the probs. of being a specific group
 simple_aggte_df <- merge(attgt.df, simple_weights, by.x = "group" )  
 relevant_att <- which(simple_aggte_df$year >= simple_aggte_df$group)
 relevant_attgt <- simple_aggte_df[relevant_att,]
+kappa <- sum(relevant_attgt$probs)
 
 # Actual Simple Weighted Overall Treatment Effect
-# Nominator: ATT(g,t) weighted with corresponding probability 
-simple_att_est <- sum(relevant_attgt$attgt * relevant_attgt$theta_o_w) #/ sum(relevant_attgt$probs)
+# Nominator: ATT(g,t) weighted with corresponding probability
+# Denominator: Sum of probability of each ATT(g,t) in post-treatment period 
+# taken over all groups
+simple_att_est <- sum(relevant_attgt$attgt * relevant_attgt$theta_o_w) / kappa
 
 # recover corresponding se
 simple_if      <- if_matrix[, relevant_att]
@@ -368,6 +365,9 @@ simple_weights <- simple_weights[relevant_att]
 
 
 simple_weighted_if <- simple_if %*% simple_weights
+
+var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(simple_weighted_if)^2)))
+se <- sqrt(var)
 
 simple_weighted_if <- as.matrix(simple_weighted_if)
 
