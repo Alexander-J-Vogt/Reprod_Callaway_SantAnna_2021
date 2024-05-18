@@ -314,14 +314,14 @@ c_hat <- quantile(t_test, 1 - alpha, na.rm = TRUE)
 
 # 4. Aggregated ATT(g,t) -------------------------------------------------------
 
-## 4.1 Simple Weighted ATT(g,t) ------------------------------------------------
-
-# Calculate the population size by group
+## 4.0 Preparation of probabilities & vectors ----------------------------------
 
 data_agg <- qwi
 
-simple_weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 4))
-colnames(simple_weights) <- c("group", "size", "probs", "theta_o_w")
+## Index and probability for attgt.df format
+# Data frame with size per 
+weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 4))
+colnames(weights) <- c("group", "size", "probs", "theta_o_w")
 
 for ( i in seq_along(grouplist) ) {
   # select group
@@ -329,17 +329,27 @@ for ( i in seq_along(grouplist) ) {
   
   # calculate group size and prob. of being in the group, 
   # i.e., group size divided by unique population size
-  simple_weights[i, 1] <- year
-  simple_weights[i, 2] <- nrow(data_agg[group == year & date_y == year, ])
-  simple_weights[i, 3] <- simple_weights[i, 2] / n_unique
+  weights[i, 1] <- year
+  weights[i, 2] <- nrow(data_agg[group == year & date_y == year, ])
+  weights[i, 3] <- weights[i, 2] / n_unique
 }
 
 
-# Preparing the attgt.gt and combinging it with the probs. of being a specific group
-simple_aggte_df <- merge(attgt.df, simple_weights, by.x = "group" )  
-relevant_att <- which(simple_aggte_df$year >= simple_aggte_df$group)
-relevant_attgt <- simple_aggte_df[relevant_att,]
+# Preparing the attgt.gt and combining it with the prob. of being a specific group
+aggte_df <- merge(attgt.df, weights, by.x = "group" )  
+index_post <- which(simple_aggte_df$year >= simple_aggte_df$group)
+index_post <- aggte_df[index_post,]
+
+## Index and probability in 
+# Function: Selecting the right influence function estimators
+
+
+
+## 4.1 Simple Weighted ATT(g,t) ------------------------------------------------
+
+# Calculate the sum of probabilites over *all relevant* ATT(g,t) (all groups & all time periods)
 kappa <- sum(relevant_attgt$probs)
+
 
 # Actual Simple Weighted Overall Treatment Effect
 # Nominator: ATT(g,t) weighted with corresponding probability
@@ -350,7 +360,7 @@ simple_att_est <- sum(relevant_attgt$attgt * relevant_attgt$probs) / kappa
 # Recovering the standard error for the overall ATT weighted by the relative 
 # size of the group
 
-# Prepare influence function by sleceting the relevant columns/ATT(g,t)
+# Prepare influence function by selecting the relevant columns/ATT(g,t)
 simple_if      <- if_matrix[, relevant_att]
 simple_weights <- simple_aggte_df[relevant_att,]
 simple_weights <- simple_aggte_df$probs / sum(relevant_attgt$probs)
