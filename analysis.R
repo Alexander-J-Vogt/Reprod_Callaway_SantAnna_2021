@@ -317,7 +317,8 @@ c_hat <- quantile(t_test, 1 - alpha, na.rm = TRUE)
 ## 4.0 Preparation of probabilities & vectors ----------------------------------
 
 data_agg <- qwi
-
+time_min <- min(data_agg$date_y)
+time_max <- max(data_agg$date_y)
 ## Index and probability for attgt.df format
 # Data frame with size per 
 weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 4))
@@ -340,8 +341,49 @@ aggte_df <- merge(attgt.df, weights, by.x = "group" )
 index_post <- which(simple_aggte_df$year >= simple_aggte_df$group)
 index_post <- aggte_df[index_post,]
 
-## Index and probability in 
-# Function: Selecting the right influence function estimators
+## Index and probability in cluster format (for group-specific ATT(g,t)) in order
+## select the right county-estimates of the influence function
+prob_list <- data_agg |>
+  filter(date_y == time_min) |>
+  select(county_id, group, date_y)
+
+prob_list <- prob_list |> 
+  left_join(weights[, c("group", "probs")], by = "group", keep = NULL) |>
+  select(-c("date_y"))
+
+for ( g in grouplist ) {
+  assign(as.vector(paste0("index_post_", g)), which(prob_list$group == g | prob_list$group == 0))
+}
+
+# Function: Selecting the right influence function estimators & calculating the SE
+
+# calculate_se <- function(matrix, prob_df, version, index_col, index_row, )
+# Two Cases: Overall vs Group-time effects
+# Step 1: Filter relevant rows and cols
+
+if (version) {
+  if_mat <- org_if[, index_col]
+} else {
+  if_mat <- org_if[index_row, index_col]
+}
+
+# Weight each column depending on prob of row
+group_weights <- aggte_df[index_col, "probs"]
+
+if_vector <- simple_if %*% group_weights
+
+# Calculate for each county a weighted influence function
+
+# Calculate actual standard error of the aggregated ATT
+var <- 1 /( nrow(simple_weighted_if) - 1 ) *( sum( (simple_weighted_if - mean(simple_weighted_if) )^2 ) )
+se <- sqrt(var/nrow(simple_weighted_if))
+
+
+# Prepare influence function by selecting the relevant columns/ATT(g,t)
+simple_if      <- if_matrix[, relevant_att]
+simple_weights <- simple_aggte_df[relevant_att,]
+simple_weights <- simple_aggte_df$probs / sum(relevant_attgt$probs)
+simple_weights <- simple_weights[relevant_att]
 
 
 
