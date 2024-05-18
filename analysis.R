@@ -339,7 +339,7 @@ for ( i in seq_along(grouplist) ) {
 # Preparing the attgt.gt and combining it with the prob. of being a specific group
 aggte_df <- merge(attgt.df, weights, by.x = "group" )  
 index_post <- which(simple_aggte_df$year >= simple_aggte_df$group)
-index_post <- aggte_df[index_post,]
+# index_post <- aggte_df[index_post,]
 
 ## Index and probability in cluster format (for group-specific ATT(g,t)) in order
 ## select the right county-estimates of the influence function
@@ -357,26 +357,44 @@ for ( g in grouplist ) {
 
 # Function: Selecting the right influence function estimators & calculating the SE
 
-# calculate_se <- function(matrix, prob_df, version, index_col, index_row, )
-# Two Cases: Overall vs Group-time effects
-# Step 1: Filter relevant rows and cols
-
-if (version) {
-  if_mat <- org_if[, index_col]
-} else {
-  if_mat <- org_if[index_row, index_col]
+recover_se_from_if <- function(matrix, 
+                               prob_df, 
+                               version = c("overall", "group"), 
+                               index_col, 
+                               index_row) {
+  
+  # Step 1: Filter relevant rows and cols
+  org_if <- as.matrix(matrix)
+    
+  # Two Cases: Overall vs Group-time effects
+  # Depending on the case the influence function is filtered for the specific 
+  # group (rows are excluded; index_row) or only the relevant ATT(g,t) in the
+  # post-treatment are selected (index_col)
+  if (version == "overall") {
+    if_mat <- org_if[, index_col]
+  } else {
+    if_mat <- org_if[index_row, index_post]
+  }
+  
+  # Weight each column depending on prob of row
+  group_weights <- prob_df[index_col] / sum(prob_df[index_col])
+  
+  # Calculate for each county a weighted influence function
+  weighted_if <- if_mat %*% group_weights
+  
+  # Calculate actual standard error of the aggregated ATT
+  var <- 1 /( nrow(weighted_if) - 1 ) * ( sum( (weighted_if - mean(weighted_if) )^2 ) )
+  se <- sqrt(var/nrow(weighted_if))
+  
+  #return se 
+  return(se)
 }
 
-# Weight each column depending on prob of row
-group_weights <- aggte_df[index_col, "probs"]
 
-if_vector <- simple_if %*% group_weights
-
-# Calculate for each county a weighted influence function
-
-# Calculate actual standard error of the aggregated ATT
-var <- 1 /( nrow(simple_weighted_if) - 1 ) *( sum( (simple_weighted_if - mean(simple_weighted_if) )^2 ) )
-se <- sqrt(var/nrow(simple_weighted_if))
+recover_se_from_if(if_matrix, 
+                   prob_df = aggte_df$probs,
+                   version = "overall",
+                   index_col = index_post)
 
 
 # Prepare influence function by selecting the relevant columns/ATT(g,t)
@@ -448,6 +466,14 @@ index_g2004_col <- which(attgt.df$group == 2004 & attgt.df$year >= 2004)
 group_if <- if_matrix[index_g2004, index_g2004_col]
 
 group_if_weighted <- group_if %*% as.vector(simple_aggte_df[index_g2004_col,"probs"])
+
+
+recover_se_from_if(if_matrix, 
+                     prob_df = aggte_df$probs,
+                     version = "group",
+                     index_row = index_post_2004,
+                     index_col = index_post)
+
 
 
 # Check if _matrix! Does each row consist of that what I think it does?
@@ -539,7 +565,7 @@ out1 <- did::att_gt(yname = "lnEmp",
                     xformla = ~white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc,
                     data = qwi,
                     control_group = "nevertreated",
-                    bstrap = FALSE,
+                    bstrap = TRUE,
                     est_method = "dr",
                     base_period = "varying")
 summary(out1)
