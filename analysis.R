@@ -514,14 +514,30 @@ attgt_et <- attgt_et[attgt_et$eventtime >= 0, ]
 grouplist_et <- unique(attgt_et$group)
 
 if ( !is.null(balance_groups) ) {
+  # Calculate the observed number of event time per group
   att_per_group <- sapply(grouplist_et, function(g){
     df <- attgt_et[attgt_et$group == g,]
     n <- nrow(df)
     n
   })
   att_per_group <- data.frame(grouplist_et, att_per_group)
+  colnames(att_per_group) <- c("eventtime", "abs_nr_att")
   
-  attgt_et <- attgt_et[attgt_et$eventtime <= balance_groups,]
+  # Check if the observed number of event time equal or larger than
+  # balance_groups + 1
+  # !!! More elegant solution
+  groups_to_exclude <- c()
+  for ( i in seq_along(att_per_group$eventtime) ) {
+    if ( att_per_group[i, 2] < balance_groups + 1 ) {
+      groups_to_exclude[i] <- att_per_group[i, 1]
+    } else {
+      next
+    }
+  }
+  groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
+  
+  # Balanced data frame
+  attgt_et <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
 }
 
 eventime_timelist <- unique(attgt_et$eventtime)
