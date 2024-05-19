@@ -504,15 +504,25 @@ agg_att_gt <- mean(att_gt)
 ## 4.4 Event Study Effect (with & w/o balanced groups) -------------------------
 
 # Indicator on how many periods a group should have experienced a treatment 
+# NULL if balance group is not asked for
 balance_groups <- 1
 
 # Copy of attgt_df results
 attgt_et <- aggte_df
+
 # Calculate eventtime 
 attgt_et$eventtime <- attgt_et$year - attgt_et$group
+
+# Exclude pre-treatment
 attgt_et <- attgt_et[attgt_et$eventtime >= 0, ]
+
+# List of unique eventtime
 grouplist_et <- unique(attgt_et$group)
 
+# Check if event study design is to be calculated with balanced groups or not
+# aka how many periods should a group have been experiencing a treatment/policy
+# -> If yes, than the ATT(g,g+t) will be balanced 
+# -> if not, the event study effect are calculated for every available event time
 if ( !is.null(balance_groups) ) {
   # Calculate the observed number of event time per group
   att_per_group <- sapply(grouplist_et, function(g){
@@ -525,6 +535,8 @@ if ( !is.null(balance_groups) ) {
   
   # Check if the observed number of event time equal or larger than
   # balance_groups + 1
+  # groups_to_exclude inhibits all years, which are not observed longer than 
+  # "balance_groups"
   # !!! More elegant solution
   groups_to_exclude <- c()
   for ( i in seq_along(att_per_group$eventtime) ) {
@@ -540,8 +552,8 @@ if ( !is.null(balance_groups) ) {
   attgt_et <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
 }
 
+# Calculation of the event study effect
 eventime_timelist <- unique(attgt_et$eventtime)
-
 att_et <- sapply(eventime_timelist, function(et) {
                       df         <- attgt_et[attgt_et$eventtime == et, ]
                       group_prob <- df$probs / sum(df$probs)
@@ -551,6 +563,7 @@ att_et <- sapply(eventime_timelist, function(et) {
 
 att_et <- data.frame(cbind(eventime_timelist, att_et))
 
+# Calculate aggregated event study effects
 aggte_et <- mean(att_et$att_et)
 
 
