@@ -316,9 +316,11 @@ c_hat <- quantile(t_test, 1 - alpha, na.rm = TRUE)
 
 ## 4.0 Preparation of probabilities & vectors ----------------------------------
 
+# Set up of copy of orginial dataset and relevant min and max of 
 data_agg <- qwi
 time_min <- min(data_agg$date_y)
 time_max <- max(data_agg$date_y)
+
 ## Index and probability for attgt.df format
 # Data frame with size per 
 weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 4))
@@ -338,8 +340,7 @@ for ( i in seq_along(grouplist) ) {
 
 # Preparing the attgt.gt and combining it with the prob. of being a specific group
 aggte_df <- merge(attgt.df, weights, by.x = "group" )  
-index_post <- which(simple_aggte_df$year >= simple_aggte_df$group)
-# index_post <- aggte_df[index_post,]
+index_post <- which(aggte_df$year >= aggte_df$group)
 
 ## Index and probability in cluster format (for group-specific ATT(g,t)) in order
 ## select the right county-estimates of the influence function
@@ -398,24 +399,26 @@ recover_se_from_if(if_matrix,
 
 
 # Prepare influence function by selecting the relevant columns/ATT(g,t)
-simple_if      <- if_matrix[, relevant_att]
-simple_weights <- simple_aggte_df[relevant_att,]
-simple_weights <- simple_aggte_df$probs / sum(relevant_attgt$probs)
-simple_weights <- simple_weights[relevant_att]
+# simple_if      <- if_matrix[, relevant_att]
+# simple_weights <- simple_aggte_df[relevant_att,]
+# simple_weights <- simple_aggte_df$probs / sum(relevant_attgt$probs)
+# simple_weights <- simple_weights[relevant_att]
 
 
 
 ## 4.1 Simple Weighted ATT(g,t) ------------------------------------------------
 
+aggte_simple <- aggte_df[index_post, ]
+
 # Calculate the sum of probabilites over *all relevant* ATT(g,t) (all groups & all time periods)
-kappa <- sum(relevant_attgt$probs)
+kappa <- sum(aggte_simple$probs)
 
 
 # Actual Simple Weighted Overall Treatment Effect
 # Nominator: ATT(g,t) weighted with corresponding probability
 # Denominator: Sum of probability of each ATT(g,t) in post-treatment period 
 # taken over all groups
-simple_att_est <- sum(relevant_attgt$attgt * relevant_attgt$probs) / kappa
+simple_att_est <- sum(aggte_simple$attgt * aggte_simple$probs) / kappa
 
 # Recovering the standard error for the overall ATT weighted by the relative 
 # size of the group
@@ -434,6 +437,7 @@ var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(simple_we
 se <- sqrt(var/nrow(simple_weighted_if))
 
 ####### [WARNING]: Might need some adjustment as SE is too small: What about WIF?
+
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
 
@@ -479,8 +483,63 @@ recover_se_from_if(if_matrix,
 # Check if _matrix! Does each row consist of that what I think it does?
 dim(if_matrix)
 
+## 4.3 Calendar Time Effects ---------------------------------------------------
+
+# Select for each group the post-treatment period
+# When 
+aggte_ct <- aggte_df[attgt.df$year >= group_min & attgt.df$year >= attgt.df$group,]
+calendar_timelist <- unique(aggte_ct$year)
+attgt_et
+# Calculate the calendar time effect for each period since the first group was treated
+att_gt <- sapply(calendar_timelist, function(t){
+                      df         <- aggte_ct[aggte_ct$year == t,]
+                      group_prob <- df$probs / sum(df$probs)
+                      attte_ct   <- sum(df$attgt * group_prob)
+                  }
+                 )
+
+# Calculate the aggregated calendar time effect over all different calendar time effects
+agg_att_gt <- mean(att_gt)
+
+## 4.4 Event Study Effect (with & w/o balanced groups) -------------------------
+
+# Indicator on how many periods a group should have experienced a treatment 
+balance_groups <- 1
+
+# Copy of attgt_df results
+attgt_et <- aggte_df
+# Calculate eventtime 
+attgt_et$eventtime <- attgt_et$year - attgt_et$group
+attgt_et <- attgt_et[attgt_et$eventtime >= 0, ]
+grouplist_et <- unique(attgt_et$group)
+
+if ( !is.null(balance_groups) ) {
+  att_per_group <- sapply(grouplist_et, function(g){
+    df <- attgt_et[attgt_et$group == g,]
+    n <- nrow(df)
+    n
+  })
+  att_per_group <- data.frame(grouplist_et, att_per_group)
+  
+  attgt_et <- attgt_et[attgt_et$eventtime <= balance_groups,]
+}
+
+eventime_timelist <- unique(attgt_et$eventtime)
+
+att_et <- sapply(eventime_timelist, function(et) {
+                      df         <- attgt_et[attgt_et$eventtime == et, ]
+                      group_prob <- df$probs / sum(df$probs)
+                      attte_et   <- sum(df$attgt * group_prob)
+                  }
+                 )
+
+att_et <- data.frame(cbind(eventime_timelist, att_et))
+
+aggte_et <- mean(att_et$att_et)
 
 
+
+## Test ----
 ## Understand data transformation
 originalt <- qwi$date_y
 originalgroup <- qwi$group
@@ -573,4 +632,4 @@ summary(out1)
 
 ggdid((out1))
 
-aggte(out1, type = "group")
+aggte(out1, type = "dynamic", balance_e = 1)
