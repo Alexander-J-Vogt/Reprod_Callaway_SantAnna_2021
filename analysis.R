@@ -121,7 +121,7 @@ for (g in grouplist) {
    # Loop over all time periods within the loop over all groups
    for (t in timelist) {
   
-    # Defining data for every loop new for a non-manipulated data set
+    # Defining data for every loop new for a non-manipulated dataset
     data <- data_origin
     
     # If the t is in post-treatment period than the reference year is the year
@@ -132,34 +132,35 @@ for (g in grouplist) {
       reference_year <- t
     }
     
+    # Selecting the relevant data of the reference year and t+1 for current 
+    # calculation of the ATT
+    data <- subset(data, date_y %in% c(reference_year, t + 1)) 
+    
     # Determining the nevertreated and group of the current iteration 
     data$g_ <- ifelse(data$group == g, 1, 0) 
     data$c_ <- ifelse(data$group == 0, 1, 0)
     
-    # Selecting the relevant data for the reference year and t+1 for     
-    data <- subset(data, date_y %in% c(reference_year, t + 1)) 
-    
-    # indicator for influence matrix
-    index_data    <- data[!duplicated(data$county_id),] # loop 
+    # Indicator for influence matrix in order to save the influence function
+    # in the right row (corresponding identifier)
+    index_data    <- data[!duplicated(data$county_id),] 
     index_inffunc <- (index_data$g_ == 1) | (index_data$c_ == 1)
     n_sample      <- length(unique(index_data$county_id))
     
-    # select group & nevertreated (control)
+    # Selecting the relevant group and nevertreated from the two year dataset
     index_gc <- (data$g_ == 1) | (data$c_ == 1)
     data_sel <- data[index_gc,]
     n_subset <- length(unique(data_sel$county_id))
     
-    # Create treatment indicator and date variables as character
-    data_sel <- data_sel|> 
-      mutate(date = paste0("y", date_y), treat = ifelse(group == g, 1, 0))
+    # # Create treatment indicator and date variables as character # Can be deleted 
+    # data_sel <- data_sel|> 
+    #   mutate(date = paste0("y", date_y), treat = ifelse(group == g, 1, 0))
     
-    if(length(unique(data$date_y)) == 2) {
+    # If condition to check if the dataset contians excately two year.
+    # If this is not the case, than the code jumps into the next loop.
+    if (length(unique(data$date_y)) == 2) {
     
-    # Change the two period data set from long to wide format in order to be
-    # usable for the drdidpanel function. 
-    # .y1: contains outcome values for current looping period t + 1
-    # .y0: contains outcome values for reference period t
-      
+    # Reshaping data_sel from long to wide format in order to have the outcome
+    # variable split by year. Thus, each row represents one county.
     data_wide       <- arrange(data_sel, county_id, date_y)
     data_wide$.y1   <- data_wide$lnEmp
     data_wide$.y0   <- shift(data_wide$lnEmp, 1)
@@ -171,50 +172,51 @@ for (g in grouplist) {
       next
     }
     
-    # Consol output
+    # Control output for iteration # Might get deleted 
     print(paste0("Iteration: ", number))
     print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
     
+    # Can probably get deleted 
     # If the number of rows is odd, the BMisc::panel2cs2 function produces missing 
     # in either .y1 or .y0. Thus, the NA's need to be removed, otherwise we don't
     # yield any DiD-estimator
-    data_cs <- data_wide[!is.na(.y1),]
-    data_cs <- data_wide[!is.na(.y0),]
+    # data_cs <- data_wide[!is.na(.y1),]
+    # data_cs <- data_wide[!is.na(.y0),]
     
-    # Save a matrix of covariates
+    # Saving the covariates as matrix for the calculation of the ATT
     covariates <- model.matrix(spec_formula, data_wide)
     
-    # att of group g at time point t
-    # att <- DRDID::drdid_panel(y1 = data_wide$.y1, 
-    #                           y0 = data_wide$.y0,
-    #                           D  = data_wide$treat,
-    #                           covariates = covariates,
-    #                           inffunc    = TRUE,
-    #                           boot       = FALSE)
-    att <- dr_att_estimator(outcome_post = data_wide$.y1, 
-                            outcome_pre = data_wide$.y0,
-                            treatment  = data_wide$treat,
-                            covariates = covariates)
+    # Estimating the ATT(g,t) for the current iteration
+    att <- DRDID::drdid_panel(y1 = data_wide$.y1,
+                              y0 = data_wide$.y0,
+                              D  = data_wide$treat,
+                              covariates = covariates,
+                              inffunc    = TRUE,
+                              boot       = FALSE)
+    # att <- dr_att_estimator(outcome_post = data_wide$.y1, 
+    #                         outcome_pre = data_wide$.y0,
+    #                         treatment  = data_wide$treat,
+    #                         covariates = covariates)
     # recover att
     #att.gt.ls[[number]]<- list(attgt = att$ATT, group = g, period = t + 1)
     
-    # Data Frame of ATTgt
-    attgt.df[number, 1] <- att #$ATT 
+    # Filling the data frame with values of ATT(g,t) 
+    attgt.df[number, 1] <- att$ATT 
     attgt.df[number, 2] <- g
     attgt.df[number, 3] <- t + 1
     
+    # Saving the estimated values of the influence function for each observation
+    # and saving it in a vector. Estimates are adjusted to account for the smaller
+    # observation size compared to the main dataset. 
+    if_vector <- rep(0, n_sample)
+    if_vector[index_inffunc] <- (n_subset / n_sample) * att$att.inf.func
+
+    # Filling the matrix with the influence function, where one column
+    # represents the estimates of the influence function of one ATT(g,t)
+    if_matrix[, number] <- if_vector
     
-    # ## Recover influence function
-    # # Create a empty vector with the length of unique observations
-    # if_vector <- rep(0, n_sample)
-    # 
-    # # estimate of influence function, weighted by relative sample size
-    # if_vector[index_inffunc] <- (n_subset / n_sample) * att$att.inf.func
-    # 
-    # # save vector of round x into the column
-    # if_matrix[, number] <- if_vector
-    
-    # add 1 to number for index
+    # Add to the variable +1 as this is the row/column indicator for the 
+    # ATT(g,t) data frame and influence function matrix
     number <- number + 1
     
   }
