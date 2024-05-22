@@ -56,7 +56,7 @@ nr_times <- length(timelist)
 
 
 data <- qwi
-g <- 2004
+g <- 2005
 t <- 2001
 
 if(t >= g) {
@@ -87,6 +87,20 @@ data_wide$.y0   <- shift(data_wide$lnEmp, 1)
 data_wide$index <- ifelse(data_wide$date_y == reference_year, 1, 0)  
 data_wide       <- data_wide[data_wide$index == 0,]
 
+test_1 <- data_sel |> 
+  arrange(county_id, date_y) |>
+  pivot_wider(id_cols = county_id,
+              names_from = date_y,
+              values_from = lnEmp
+              ) 
+
+test <- reshape(data = data_wide, 
+                idvar = "county_id", 
+                timevar = "date_y", 
+                v.names = "lnEmp",
+                direction = "wide")
+
+
 # Save a matrix of covariates
 covariates <- model.matrix(spec_formula, data_wide)
 
@@ -96,6 +110,9 @@ treat  <- data_wide$treat
 
 # 1. Doubly Robust DID-Estimator - OWN -----------------------------------------
 
+#' The Doubly Robust Estimator follows the three step procedure of 
+#' Sant'Anna & Zhao (2020) for estimating the ATT  of the improved 
+#' DR DID estimator for panel data.  
 
 dr_att_estimator <-  function(outcome_post, outcome_pre, treatment, covariates) {
 
@@ -105,13 +122,9 @@ dr_att_estimator <-  function(outcome_post, outcome_pre, treatment, covariates) 
     treat  <- treatment
     covariates <- as.matrix(covariates)
     
-    #' The Doubly Robust Estimator follows the three step procedure of 
-    #' Sant'Anna & Zhao (2020) for estimating the ATT  of the improved 
-    #' DR DID estimator for panel data.  
-    
     # Step 1: IPW
-    # Estimating the propensity score with a logistic regressions and predict the 
-    # probability of treatment for each observation.
+    # Estimating the propensity score with a logistic regressions and predicting 
+    # the probability of treatment for each observation.
     prop_score <- glm(treat ~ covariates, family = binomial)
     Y_post_predict <- predict(prop_score, type = "response")
     
@@ -144,9 +157,6 @@ dr_att_estimator <-  function(outcome_post, outcome_pre, treatment, covariates) 
     # Calculating  the ATT according to equation (3.1) in Sant'Anna & Zhao (2020)
     delta_Y <- Y_post - Y_pre
     att <- mean((omega_1 - omega_2) * (delta_Y - mu_delta))
-    
-    # Return
-    # att
   
 }
 
