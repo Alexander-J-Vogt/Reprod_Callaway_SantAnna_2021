@@ -568,46 +568,6 @@ aggte_et <- mean(att_et$att_et)
 
 
 
-## Test ----
-## Understand data transformation
-originalt <- qwi$date_y
-originalgroup <- qwi$group
-originalglist <- grouplist
-originaltlist <- timelist
-
-# function to switch from "new" t values to  original t values
-t2orig <- function(t) {
-  unique(c(originalgtlist,0))[which(c(uniquet,0)==t)]
-}
-# function to switch between "original"
-#  t values and new t values
-orig2t <- function(orig) {
-  new_t <- c(uniquet,0)[which(unique(c(originalgtlist,0))==orig)]
-  out <- ifelse(length(new_t) == 0, NA, new_t)
-  out
-}
-t <- sapply(originalt, orig2t)
-group <- sapply(originalgroup, orig2t)
-glist <- sapply(originalglist, orig2t)
-tlist <- unique(t)
-maxT <- max(t)
-
-
-# we can work in overall probabilities because conditioning will cancel out
-# cause it shows up in numerator and denominator
-pg <- sapply(originalglist, function(g) mean(1*(qwi[,group]==g)))
-
-# length of this is equal to number of groups
-pgg <- pg
-max_e = Inf
-# same but length is equal to the number of ATT(g,t)
-pg <- pg[match(group, glist)]
-
-keepers <- which(group <= t) #& t<= (group + max_e)) ### added second condition to allow for limit on longest period included in att
-
-# n x 1 vector of group variable
-G <-  unlist(lapply(qwi[,group], orig2t))
-
 
 
   
