@@ -30,52 +30,102 @@ qwi <- qwi |>
 ## ---- Start with the replication of the group-time average treatment effect
 ################################################################################
 
+#  DR Estimator for DiD ----
+#' The Doubly Robust Estimator follows the three step procedure of 
+#' Sant'Anna & Zhao (2020) for estimating the ATT  of the improved 
+#' DR DID estimator for panel data.  
+
+dr_att_estimator <-  function(outcome_post, outcome_pre, treatment, covariates) {
+  
+  # Redefining variables given to the function for standardization
+  Y_post <- outcome_post
+  Y_pre  <- outcome_pre
+  treat  <- treatment
+  covariates <- as.matrix(covariates)
+  
+  # Step 1: IPW
+  # Estimating the propensity score with a logistic regressions and predicting 
+  # the probability of treatment for each observation.
+  prop_score <- glm(treat ~ covariates, family = binomial)
+  Y_post_predict <- predict(prop_score, type = "response")
+  
+  # Step 2: Outcome Regression
+  # Select nevertreated group in order to prepare the data for the estimation
+  # of the linear coefficient 
+  index_nevertreated <- which(treat == 0)
+  covariates_nt <- covariates[index_nevertreated,]
+  
+  # Estimating the linear coefficients for the pre and post treatment period
+  # in order to calculate the change in coefficient
+  beta_post <- coef(lm(Y_post[index_nevertreated] ~ -1 + covariates_nt))
+  beta_pre  <- coef(lm(Y_pre[index_nevertreated]  ~ -1 + covariates_nt))
+  
+  # Calculate the difference between the pre and post coefficients 
+  beta_delta <- as.vector(beta_post - beta_pre)
+  
+  # Calculating the product of covariates matrix and mu_delta, which will be 
+  # used in the final calculation of the  
+  mu_delta <- covariates %*% beta_delta
+  
+  # Calculating the weights for the treated group according to the equation (3.2)
+  omega_1 <- treat / mean(treat)
+  
+  # Calculating the weights for the nevertreated group according to the equation (3.2)
+  omega_2 <- (Y_post_predict * (1 - treat) / (1 - Y_post_predict)) /
+    mean(Y_post_predict * (1 - treat) / (1 - Y_post_predict))
+  
+  # Step 3: 
+  # Calculating  the ATT according to equation (3.1) in Sant'Anna & Zhao (2020)
+  delta_Y <- Y_post - Y_pre
+  att <- mean((omega_1 - omega_2) * (delta_Y - mu_delta))
+  
+}
+
 #---- Start up & Define variables ----------------------------------------------
 
-# covariates formula
-spec_formula <- ~-1+white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc
+# Working copy of original data set
+data_origin <- qwi
 
+# Specifying formula for ATT estimator
+spec_formula <- ~ -1 + white_pop_2000_perc + poverty_allages_1997_perc + pop_2000_nr_1000s + median_income_1997_1000s + HS_1990_perc
 
-# relevant numbers
+# Determining unique time periods and groups
 timelist <- unique(qwi$date_y)
 grouplist <- sort(unique(qwi$group))
 grouplist <- grouplist[grouplist != 0]
-num_of_cases <- (length(timelist) - 1) * length(grouplist)
 
-# create empty data frame and/or list
+# Creating empty data frame and/or list for the different ATT estimators
+num_of_cases <- (length(timelist) - 1) * length(grouplist)
 attgt.df <- as.data.frame(matrix(NA, nrow = num_of_cases, ncol = 3))
 colnames(attgt.df) <- c("attgt", "group", "year")
 att.gt.ls <- list()
 
-# create empty matrix
+# Creating an empty matrix for influence functions
 number <- 1
 n_unique <- length(unique(qwi$county_id))
 nr_group <- length(grouplist)
 nr_times <- length(timelist)
-
-
-if_matrix <- Matrix::Matrix(data = 0, nrow = n_unique, 
+if_matrix <- Matrix::Matrix(data = 0, 
+                            nrow = n_unique, 
                             ncol = nr_group * (nr_times - 1), 
                             sparse = TRUE)
 
 
 
-#  1. ATT(g,t) via double loop -------------------------------------------------
+# 1. ATT(g,t) via double loop -------------------------------------------------
 
-data_origin <- qwi
 
+# Loop over all groups
 for (g in grouplist) {
 
+   # Loop over all time periods within the loop over all groups
    for (t in timelist) {
   
+    # Defining data for every loop new
     data <- data_origin
     
-    ###
-    # Add weight if-condition (if time)
-    ###
-    
-    # determine reference_year based on whether t lays within the post-treatment 
-    # period or not
+    # If the t is in post-treatment period than the reference year is the year
+    # before the group year. Otherwise the reference year is equal to t.
     if(t >= g) {
       reference_year <- g - 1
     } else {
@@ -135,31 +185,34 @@ for (g in grouplist) {
     covariates <- model.matrix(spec_formula, data_wide)
     
     # att of group g at time point t
-    att <- DRDID::drdid_panel(y1 = data_wide$.y1, 
-                              y0 = data_wide$.y0,
-                              D  = data_wide$treat,
-                              covariates = covariates,
-                              inffunc    = TRUE,
-                              boot       = FALSE)
-    
+    # att <- DRDID::drdid_panel(y1 = data_wide$.y1, 
+    #                           y0 = data_wide$.y0,
+    #                           D  = data_wide$treat,
+    #                           covariates = covariates,
+    #                           inffunc    = TRUE,
+    #                           boot       = FALSE)
+    att <- dr_att_estimator(outcome_post = data_wide$.y1, 
+                            outcome_pre = data_wide$.y0,
+                            treatment  = data_wide$treat,
+                            covariates = covariates)
     # recover att
-    att.gt.ls[[number]]<- list(attgt = att$ATT, group = g, period = t + 1)
+    #att.gt.ls[[number]]<- list(attgt = att$ATT, group = g, period = t + 1)
     
     # Data Frame of ATTgt
-    attgt.df[number, 1] <- att$ATT 
+    attgt.df[number, 1] <- att #$ATT 
     attgt.df[number, 2] <- g
     attgt.df[number, 3] <- t + 1
     
     
-    ## Recover influence function
-    # Create a empty vector with the length of unique observations
-    if_vector <- rep(0, n_sample)
-    
-    # estimate of influence function, weighted by relative sample size
-    if_vector[index_inffunc] <- (n_subset / n_sample) * att$att.inf.func
-    
-    # save vector of round x into the column
-    if_matrix[, number] <- if_vector
+    # ## Recover influence function
+    # # Create a empty vector with the length of unique observations
+    # if_vector <- rep(0, n_sample)
+    # 
+    # # estimate of influence function, weighted by relative sample size
+    # if_vector[index_inffunc] <- (n_subset / n_sample) * att$att.inf.func
+    # 
+    # # save vector of round x into the column
+    # if_matrix[, number] <- if_vector
     
     # add 1 to number for index
     number <- number + 1
