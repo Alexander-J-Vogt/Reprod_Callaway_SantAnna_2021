@@ -57,7 +57,7 @@ nr_times <- length(timelist)
 
 data <- qwi
 g <- 2004
-t <- 200
+t <- 2001
 
 if(t >= g) {
   reference_year <- g - 1
@@ -96,56 +96,61 @@ treat  <- data_wide$treat
 
 # 1. Doubly Robust DID-Estimator - OWN -----------------------------------------
 
-# Estimate propensity score 
-prop_score <- glm(treat ~ covariates, family = binomial(link = "logit"))
-# type = responses gives predicted probabilities
-Y_post_predict <- predict(prop_score, type = "response")
 
-## Estimation of outcome regression
-# Calculate mu for nevertreated individuals
-index_nevertreated <- which(treat == 0)
-delta_Y <- Y_post - Y_pre
+dr_att_estimator <-  function(outcome_post, outcome_pre, treatment, covariates) {
 
-covariates_nt <- covariates[index_nevertreated,]
-
-or_post <- coef(lm(Y_post[index_nevertreated] ~ -1 + covariates_nt))
-or_pre  <- coef(lm(Y_pre[index_nevertreated] ~ -1 + covariates_nt))
-delta_or <- as.vector(or_post - or_pre)
-
-mu <- covariates %*% delta_or
-
-# Calculation of weights for treated and untreated group
-omega_1 <- treat / mean(treat)
-omega_2 <- (Y_post_predict * (1 - treat) / (1 - Y_post_predict)) /
-  mean(Y_post_predict * (1 - treat) / (1 - Y_post_predict))
-
-att <- mean((omega_1 - omega_2) * (delta_Y - mu))
+    # Redefining variables given to the function for standardization
+    Y_post <- outcome_post
+    Y_pre  <- outcome_pre
+    treat  <- treatment
+    covariates <- as.matrix(covariates)
+    
+    #' The Doubly Robust Estimator follows the three step procedure of 
+    #' Sant'Anna & Zhao (2020) for estimating the ATT  of the improved 
+    #' DR DID estimator for panel data.  
+    
+    # Step 1: IPW
+    # Estimating the propensity score with a logistic regressions and predict the 
+    # probability of treatment for each observation.
+    prop_score <- glm(treat ~ covariates, family = binomial)
+    Y_post_predict <- predict(prop_score, type = "response")
+    
+    # Step 2: Outcome Regression
+    # Select nevertreated group in order to prepare the data for the estimation
+    # of the linear coefficient 
+    index_nevertreated <- which(treat == 0)
+    covariates_nt <- covariates[index_nevertreated,]
+    
+    # Estimating the linear coefficients for the pre and post treatment period
+    # in order to calculate the change in coefficient
+    beta_post <- coef(lm(Y_post[index_nevertreated] ~ -1 + covariates_nt))
+    beta_pre  <- coef(lm(Y_pre[index_nevertreated]  ~ -1 + covariates_nt))
+    
+    # Calculate the difference between the pre and post coefficients 
+    beta_delta <- as.vector(beta_post - beta_pre)
+    
+    # Calculating the product of covariates matrix and mu_delta, which will be 
+    # used in the final calculation of the  
+    mu_delta <- covariates %*% beta_delta
+    
+    # Calculating the weights for the treated group according to the equation (3.2)
+    omega_1 <- treat / mean(treat)
+    
+    # Calculating the weights for the nevertreated group according to the equation (3.2)
+    omega_2 <- (Y_post_predict * (1 - treat) / (1 - Y_post_predict)) /
+      mean(Y_post_predict * (1 - treat) / (1 - Y_post_predict))
+    
+    # Step 3: 
+    # Calculating  the ATT according to equation (3.1) in Sant'Anna & Zhao (2020)
+    delta_Y <- Y_post - Y_pre
+    att <- mean((omega_1 - omega_2) * (delta_Y - mu_delta))
+    
+    # Return
+    # att
   
-  
-relevant_var <- c(omega_1, omega_2, delta_Y, mu)
-  sapply(relevant_var, function(x) {
-     #d <- dim(x)
-     l <- length()
-     
-    return(l)
-  })
-  
-  
-  
-  
-  length(omega_1)
-  length(omega_2)
-  length(delta_Y)
-  dim(delta_Y)
-  length(mu)
+}
 
-
-
-
-
-
-
-
-
-
-
+t <-  dr_att_estimator(outcome_post = Y_post,
+                 outcome_pre  = Y_pre,
+                 treatment    = treat,
+                 covariates   = covariates )
