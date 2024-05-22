@@ -121,22 +121,22 @@ for (g in grouplist) {
    # Loop over all time periods within the loop over all groups
    for (t in timelist) {
   
-    # Defining data for every loop new
+    # Defining data for every loop new for a non-manipulated data set
     data <- data_origin
     
     # If the t is in post-treatment period than the reference year is the year
     # before the group year. Otherwise the reference year is equal to t.
-    if(t >= g) {
+    if (t >= g) {
       reference_year <- g - 1
     } else {
       reference_year <- t
     }
     
-    # current group indicator (should get overwritten once we loop over groups)
+    # Determining the nevertreated and group of the current iteration 
     data$g_ <- ifelse(data$group == g, 1, 0) 
     data$c_ <- ifelse(data$group == 0, 1, 0)
     
-    # Select data in pre- & post-treatment period for relevant group and never-treated
+    # Selecting the relevant data for the reference year and t+1 for     
     data <- subset(data, date_y %in% c(reference_year, t + 1)) 
     
     # indicator for influence matrix
