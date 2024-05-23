@@ -261,33 +261,34 @@ for (g in grouplist) {
 ## 4.0 Preparation of probabilities & vectors ----------------------------------
 
 # Set up of copy of original dataset and relevant min and max of 
-data_agg <- qwi
-time_min <- min(data_agg$date_y)
-time_max <- max(data_agg$date_y)
+data <- qwi
+time_min <- min(data$date_y)
+time_max <- max(data$date_y)
 
 # Calculation of the probability to belong to a treated group g   
 # Preparing an empty data frame, which will be filled with probability 
 # to belong to group g
-weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 4))
+weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
 colnames(weights) <- c("group", "size", "probs")
 
 # Calculate actual probabilities to belong to a group in a loop
 for (i in seq_along(grouplist)) {
   
   # select group
-  group <- grouplist[i]
+  g <- grouplist[i]
   
   # calculate group size and prob. of being in the group, 
   # i.e., group size divided by unique population size
-  weights[i, 1] <- group
-  weights[i, 2] <- nrow(data_agg[group == year & date_y == year, ])
+  weights[i, 1] <- g
+  weights[i, 2] <- nrow(data[group == g & date_y == g, ])
   weights[i, 3] <- weights[i, 2] / n_unique
 }
 
-# Merging the  
-aggte_df <- merge(attgt.df, weights, by.x = "group" )  
-index_post <- which(aggte_df$year >= aggte_df$group)
+# Merging the data frame with all ATT(g,t) with the corresponding probability
+# to the belong to a group g
+attgt_probs_df <- merge(attgt.df, weights, by.x = "group" )  
 
+## Might not be relevant.
 ## Index and probability in cluster format (for group-specific ATT(g,t)) in order
 ## select the right county-estimates of the influence function
 prob_list <- data_agg |>
@@ -343,17 +344,10 @@ recover_se_from_if(if_matrix,
                    version = "overall",
                    index_col = index_post)
 
-
-# Prepare influence function by selecting the relevant columns/ATT(g,t)
-# simple_if      <- if_matrix[, relevant_att]
-# simple_weights <- simple_aggte_df[relevant_att,]
-# simple_weights <- simple_aggte_df$probs / sum(relevant_attgt$probs)
-# simple_weights <- simple_weights[relevant_att]
-
-
-
 ## 4.1 Simple Weighted ATT(g,t) ------------------------------------------------
 
+# Creating index 
+index_post <- which(attgt.df$year >= attgt.df$group)
 aggte_simple <- aggte_df[index_post, ]
 
 # Calculate the sum of probabilites over *all relevant* ATT(g,t) (all groups & all time periods)
