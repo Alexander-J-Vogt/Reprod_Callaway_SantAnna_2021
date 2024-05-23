@@ -36,7 +36,6 @@ qwi <- qwi |>
 #' DR DID estimator for panel data.  
 
 dr_att_estimator <-  function(outcome_post, outcome_pre, treatment, covariates) {
-  
   # Redefining variables given to the function for standardization
   Y_post <- outcome_post
   Y_pre  <- outcome_pre
@@ -78,7 +77,6 @@ dr_att_estimator <-  function(outcome_post, outcome_pre, treatment, covariates) 
   # Calculating  the ATT according to equation (3.1) in Sant'Anna & Zhao (2020)
   delta_Y <- Y_post - Y_pre
   att <- mean((omega_1 - omega_2) * (delta_Y - mu_delta))
-  
 }
 
 # Unconditional DiD-ATT estimator  -----
@@ -86,8 +84,7 @@ dr_att_estimator <-  function(outcome_post, outcome_pre, treatment, covariates) 
 # Function to calculate the unconditional average treatment effect on the treated
 # ATT is calculated by simply taking the difference of the treatment effects of
 # the pre- and post-treatment assuming that the parallel trend assumption holds.
-unconditional_att <- function (outcome_post, outcome_pre, treatment) {
-  
+unconditional_att <- function(outcome_post, outcome_pre, treatment) {
   # Estimating the average treatment effect on the treated 
   results_post <- lm(outcome_post ~ treatment)
   results_pre  <- lm(outcome_pre ~ treatment)
@@ -117,13 +114,9 @@ unconditional_att <- function (outcome_post, outcome_pre, treatment) {
   # Saving the results in list
   results <- list()
   results <- list(att = att, inf.func.att = inf_df)
-  
 }
 
 #---- Start up & Define variables ----------------------------------------------
-
-# Working copy of original data set
-data_origin <- qwi
 
 # Specifying formula for ATT estimator
 spec_formula <- ~ -1 + white_pop_2000_perc + poverty_allages_1997_perc + pop_2000_nr_1000s + median_income_1997_1000s + HS_1990_perc
@@ -149,8 +142,6 @@ if_matrix <- Matrix::Matrix(data = 0,
                             ncol = nr_group * (nr_times - 1), 
                             sparse = TRUE)
 
-
-
 # 1. ATT(g,t) via double loop -------------------------------------------------
 
 
@@ -161,7 +152,7 @@ for (g in grouplist) {
    for (t in timelist) {
   
     # Defining data for every loop new for a non-manipulated dataset
-    data <- data_origin
+    data <- qwi
     
     # If the t is in post-treatment period than the reference year is the year
     # before the group year. Otherwise the reference year is equal to t.
@@ -269,29 +260,31 @@ for (g in grouplist) {
 
 ## 4.0 Preparation of probabilities & vectors ----------------------------------
 
-# Set up of copy of orginial dataset and relevant min and max of 
+# Set up of copy of original dataset and relevant min and max of 
 data_agg <- qwi
 time_min <- min(data_agg$date_y)
 time_max <- max(data_agg$date_y)
 
-## Index and probability for attgt.df format
-# Data frame with size per 
+# Calculation of the probability to belong to a treated group g   
+# Preparing an empty data frame, which will be filled with probability 
+# to belong to group g
 weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 4))
-colnames(weights) <- c("group", "size", "probs", "theta_o_w")
+colnames(weights) <- c("group", "size", "probs")
 
-for ( i in seq_along(grouplist) ) {
+# Calculate actual probabilities to belong to a group in a loop
+for (i in seq_along(grouplist)) {
+  
   # select group
-  year <- grouplist[i]
+  group <- grouplist[i]
   
   # calculate group size and prob. of being in the group, 
   # i.e., group size divided by unique population size
-  weights[i, 1] <- year
+  weights[i, 1] <- group
   weights[i, 2] <- nrow(data_agg[group == year & date_y == year, ])
   weights[i, 3] <- weights[i, 2] / n_unique
 }
 
-
-# Preparing the attgt.gt and combining it with the prob. of being a specific group
+# Merging the  
 aggte_df <- merge(attgt.df, weights, by.x = "group" )  
 index_post <- which(aggte_df$year >= aggte_df$group)
 
