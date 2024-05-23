@@ -625,6 +625,28 @@ aggte_et <- mean(att_et$att_et)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   
   
 params <- DIDparams(yname = "lnEmp",
