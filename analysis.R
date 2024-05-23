@@ -152,8 +152,9 @@ for (g in grouplist) {
     n_subset <- length(unique(data_sel$county_id))
     
     # # Create treatment indicator and date variables as character # Can be deleted 
-    # data_sel <- data_sel|> 
-    #   mutate(date = paste0("y", date_y), treat = ifelse(group == g, 1, 0))
+     data_sel <- data_sel|> 
+       mutate(#date = paste0("y", date_y), 
+                treat = ifelse(group == g, 1, 0))
     
     # If condition to check if the dataset contians excately two year.
     # If this is not the case, than the code jumps into the next loop.
