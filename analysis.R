@@ -81,6 +81,45 @@ dr_att_estimator <-  function(outcome_post, outcome_pre, treatment, covariates) 
   
 }
 
+# Unconditional DiD-ATT estimator  -----
+
+# Function to calculate the unconditional average treatment effect on the treated
+# ATT is calculated by simply taking the difference of the treatment effects of
+# the pre- and post-treatment assuming that the parallel trend assumption holds.
+unconditional_att <- function (outcome_post, outcome_pre, treatment) {
+  
+  # Estimating the average treatment effect on the treated 
+  results_post <- lm(outcome_post ~ treatment)
+  results_pre  <- lm(outcome_pre ~ treatment)
+  coef_post <- coef(results_post)[2]
+  coef_pre  <- coef(results_pre)[2]
+  att <- coef_post - coef_pre
+  
+  # Estimating the influence function for each observation in order to 
+  # calculate the standard errors based on the estimates. Theoretically,
+  # estimates() allows also to extract the unconditional ATT
+  merged_estimates <- merge(results_post, results_pre)
+  merged_coef <- lava::estimate(merged_estimates, cbind(0, 1, 0, -1))
+  
+  # Extracting the estimates from the given object of estimates(). Dealing
+  # with the unsorted list and convert it to a data frame. Rearranging the 
+  # data frame in order to have the right order of initial observations given
+  # of outcome_post and outcome_pre. (Resource: lava package + explanation)
+  inf  <- IC(merged_coef)
+  inf_df  <-  as.data.frame(inf)
+  rownames <- as.vector(rownames(inf))
+  rownames <- as.double(rownames)
+  inf_df <- cbind(inf_df, rownames)
+  inf_df <- arrange(inf_df, rownames)
+  colnames(inf_df) <- c("estimates", "index")
+  inf_df <- inf_df$estimates
+  
+  # Saving the results in list
+  results <- list()
+  results <- list(att = att, inf.func.att = inf_df)
+  
+}
+
 #---- Start up & Define variables ----------------------------------------------
 
 # Working copy of original data set
