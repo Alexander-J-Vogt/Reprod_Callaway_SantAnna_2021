@@ -160,7 +160,8 @@ basic_att <- function (outcome_post, outcome_pre, treatment) {
   rownames <- as.double(rownames)
   inf_df <- cbind(inf_df, rownames)
   inf_df <- arrange(inf_df, rownames)
-  inf_df <- inf_df$`treat] - [treat.1`
+  colnames(inf_df) <- c("estimates", "index")
+  inf_df <- inf_df$estimates
   
   # Saving the results in list
   results <- list()
@@ -172,7 +173,8 @@ results <- basic_att(Y_post, Y_pre, treat)
 
 
 
-results$att
+results$inf.func.att
+
 
 inf <- as.matrix(inf)
 
