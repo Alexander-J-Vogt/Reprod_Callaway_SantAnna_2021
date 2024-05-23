@@ -77,9 +77,9 @@ index_gc <- (data$g_ == 1) | (data$c_ == 1)
 data_sel <- data[index_gc,]
 n_subset <- length(unique(data_sel$county_id))
 
-#
-data_sel <- data_sel|> 
-  mutate(date = paste0("y", date_y), treat = ifelse(group == g, 1, 0))
+# #
+# data_sel <- data_sel|> 
+#   mutate(date = paste0("y", date_y), treat = ifelse(group == g, 1, 0))
 
 data_wide       <- arrange(data_sel, county_id, date_y)
 data_wide$.y1   <- data_wide$lnEmp
@@ -92,13 +92,19 @@ test_1 <- data_sel |>
   pivot_wider(id_cols = county_id,
               names_from = date_y,
               values_from = lnEmp
-              ) 
+              ) |>
+  left_join(data_sel, join_by(county_id))
 
-test <- reshape(data = data_wide, 
+data_test <- arrange(data_sel, county_id, date_y)
+data_test <- select(data_test, county_id, date_y, lnEmp)
+x <- reshape(data = data_test, 
                 idvar = "county_id", 
                 timevar = "date_y", 
                 v.names = "lnEmp",
                 direction = "wide")
+
+test2 <- x |>
+  left_join(data_sel, by = join_by(county_id))
 
 
 # Save a matrix of covariates
