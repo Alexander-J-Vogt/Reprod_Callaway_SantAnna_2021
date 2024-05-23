@@ -27,6 +27,9 @@ qwi <- qwi |>
   relocate(lnEmp, .after = date_y) |>
   arrange(county_id, date_y) # if sth make problem this could be the reason!
 
+
+load(paste0("./", "01_Data/mw_data_ch2.RData"))
+load(paste0("./", "01_Data/data2.RData"))
 ################################################################################
 ## ---- Start with the replication of the group-time average treatment effect
 ################################################################################
@@ -35,7 +38,6 @@ qwi <- qwi |>
 
 # covariates formula
 spec_formula <- ~-1+white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc
-
 
 # relevant numbers
 timelist <- unique(qwi$date_y)
@@ -54,10 +56,9 @@ n_unique <- length(unique(qwi$county_id))
 nr_group <- length(grouplist)
 nr_times <- length(timelist)
 
-
 data <- qwi
-g <- 2005
-t <- 2001
+g <- 2004
+t <- 2003
 
 if(t >= g) {
   reference_year <- g - 1
@@ -78,8 +79,8 @@ data_sel <- data[index_gc,]
 n_subset <- length(unique(data_sel$county_id))
 
 # #
-# data_sel <- data_sel|> 
-#   mutate(date = paste0("y", date_y), treat = ifelse(group == g, 1, 0))
+data_sel <- data_sel|>
+  mutate(date = paste0("y", date_y), treat = ifelse(group == g, 1, 0))
 
 data_wide       <- arrange(data_sel, county_id, date_y)
 data_wide$.y1   <- data_wide$lnEmp
@@ -113,6 +114,86 @@ covariates <- model.matrix(spec_formula, data_wide)
 Y_post <- data_wide$.y1
 Y_pre  <- data_wide$.y0
 treat  <- data_wide$treat
+
+# DID-estimator for the case of unconditional trends
+
+treat_ind   <-  which(treat == 1)
+delta_treat <- mean(Y_post[which(treat == 1)]) - mean(Y_pre[which(treat == 1)])
+delta_nt    <- mean(Y_post[which(treat == 0)]) - mean(Y_pre[which(treat == 0)])
+att <-  delta_treat - delta_nt
+
+
+
+data_alternative <- data_sel |>
+  select(lnEmp, treat, date_y)
+
+# Influence function with lava -----
+# Same ATT  
+reg <- lm(lnEmp ~ treat + date_y + date_y * treat, data_alternative)
+
+
+# Function to calculate the unconditional average treatment effect on the treated
+# ATT is calculated by simply taking the difference of the treatment effects of
+# the pre- and post-treatment assuming that the parallel trend assumption holds.
+basic_att <- function (outcome_post, outcome_pre, treatment) {
+    
+  # Estimating the average treatment effect on the treated 
+  results_post <- lm(outcome_post ~ treatment)
+  results_pre  <- lm(outcome_pre ~ treatment)
+  coef_post <- coef(results_post)[2]
+  coef_pre  <- coef(results_pre)[2]
+  att <- coef_post - coef_pre
+  
+  # Estimating the influence function for each observation in order to 
+  # calculate the standard errors based on the estimates. Theoretically,
+  # estimates() allows also to extract the unconditional ATT
+  merged_estimates <- merge(results_post, results_pre)
+  merged_coef <- lava::estimate(merged_estimates, cbind(0, 1, 0, -1))
+  
+  # Extracting the estimates from the given object of estimates(). Dealing
+  # with the unsorted list and convert it to a data frame. Rearranging the 
+  # data frame in order to have the right order of initial observations given
+  # of outcome_post and outcome_pre. (Resource: lava package + explanation)
+  inf  <- IC(merged_coef)
+  inf_df  <-  as.data.frame(inf)
+  rownames <- as.vector(rownames(inf))
+  rownames <- as.double(rownames)
+  inf_df <- cbind(inf_df, rownames)
+  inf_df <- arrange(inf_df, rownames)
+  inf_df <- inf_df$`treat] - [treat.1`
+  
+  # Saving the results in list
+  results <- list()
+  results <- list(att = att, inf.func.att = inf_df)
+
+}
+
+results <- basic_att(Y_post, Y_pre, treat)
+
+
+
+results$att
+
+inf <- as.matrix(inf)
+
+cbind(inf, rownames)
+
+inf <- rbind(inf)
+cbind(row_ind = rownames(inf), inf)
+inf <- rbind(inf)
+inf$row_index <- rownames(inf)
+
+inf.func_post <- IC(estimate(reg1))
+inf.func_pre <- IC(estimate(reg2))
+
+inf.func.att <- as.vector(inf.func_post[,2]) - as.vector(inf.func_pre[,2])
+var_ic(inf.func.att)
+
+r <- IC(estimate(reg))
+
+identical(r[,2], inf.func.att)
+
+
 
 # 1. Doubly Robust DID-Estimator - OWN -----------------------------------------
 
@@ -170,3 +251,9 @@ t <-  dr_att_estimator(outcome_post = Y_post,
                  outcome_pre  = Y_pre,
                  treatment    = treat,
                  covariates   = covariates )
+
+# Use data mpdta.rda
+data(mpdta)
+View(mpdta)
+length(countyreal)
+

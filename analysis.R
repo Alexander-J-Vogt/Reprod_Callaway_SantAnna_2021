@@ -223,148 +223,6 @@ for (g in grouplist) {
 
 }
 
-# 2. Standard Errors of ATT(g,t) -----------------------------------------------
-
-#' Multiplier Bootstrapping is relevant for confidence intervals and
-#' replacing values that are too small in the v
-if_matrix <- as.matrix(if_matrix)
-# How to get variance of inffun:
-# https://cran.r-project.org/web/packages/lava/vignettes/influencefunction.
-
-vcov_matrix <- t(if_matrix) %*% if_matrix * (1 / n_unique)
-
-# Basic matrix calculation to get variance and standard error
-var <- diag(vcov_matrix / n_unique)
-se <-  sqrt(var)
-
-se[se <= sqrt(.Machine$double.eps)*10] <- NA
-identifier <-  unique(which(is.na(se))) 
-
-# 3. Statistics via bootstrapping ----------------------------------------------
-
-# Defined Values for 3. 
-cluster <- length(unique(qwi$county_id))
-
-
-## Step 3.1.1: Multiplier Bootstrap Function -----------------------------------
-#' Program function for multiplier bootstrapping in order to create limiting 
-#' distribution of the influence function for each ATT(g,t) estimator. 
-#' Thereby, the function resembles the first two steps of the described 
-#' Algorithm 1 in Callaway & Sant'Anna (2021). 
-#' The bootstrapping_algorithm-function is commonly specified for 
-#' all influence function in order to allow for universality in usage.
-
-bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
-
-  # Determine number of rows and columns for the multiplier bootstrap algorithm
-  inffunc_matrix <- as.matrix(inffunc_matrix)
-  n_row          <- nrow(inffunc_matrix)
-  n_col          <- ncol(inffunc_matrix)
-  
-  # Empty matrix, which is later filled with the distribution of 
-  boot_results <- Matrix::Matrix(0, nrow = iter, ncol = n_col)
-  
-  # (1) & (2) of Algorithm 1 in Callaway & Sant'Anna (2021)
-  for ( i in 1:iter ) {
-    
-    # Calculate Bernoulli Variates, which are used to select the influence 
-    # function values of each calculated ATT(g,t) f
-    # Advantage to common Bootstrapping: No re-sampling!
-    
-    # Bernoulli Variates according to Mammen (1993) which are iid
-    kappa <- ( sqrt(5) + 1 ) / 2
-    p <- kappa / sqrt(5)
-    bernoulli_variates <- rbinom(n_row, 1, p) # Is this right?
-    
-    # Sampling each column (aka influence function of each ATT(g,t)) with the 
-    # Bernoulli Variates
-    multiplied_if <- inffunc_matrix * bernoulli_variates
-    
-    # Bootstrap-Sampling-Distribution of influence function (n x (g*(t-1)) matrix)
-    boot_results[i, ] <- colMeans(multiplied_if)
-  
-  } # end of loop
-
-  # Return bootstrap matrix with influence function
-  return(boot_results)
-  
-} # end of bootstrapping algorithm
-
-mat <- as.matrix(if_matrix)
-test <-  multiplier_bootstrap(mat, 1000)
-test1 <- bootstrapping_algorithm(mat, iter = 1000)
-delta <- test - test1
-colMeans(as.matrix(delta))
-
-## Step 3.1.2: Use of the MBoot Function ---------------------------------------
-
-#' Use the function to calculate the limiting distribution and scale it 
-#' with sqrt(n) [write reason for this here]. The limiting distribution equals 
-#' R*(g,t) in the proposed Algorithm 1 in CS. The calculations are bootstrapped 
-#' on county-level as the Bernoulli-Variates are cluster-specific.
-
-# Own
-data_boot <-  qwi
-
-dist <-  sqrt(cluster) * bootstrapping_algorithm(if_matrix)
-dist <- as.matrix(dist)
-
-# Given Multiplier function
-if_matrix <- as.matrix(if_matrix)
-dist_given <-  sqrt(cluster) * BMisc::multiplier_bootstrap(if_matrix, biters = 1000)
-dist_given <- as.matrix(dist_given)
-
-## Step 3.2:  Bootstrap Estimator of the Standard Deviation --------------------
-#' Calculate the bootstrap estimator of the standard deviation (thus,standard 
-#' error) [Note to myself: I do not need to multiply the results of the by 
-#' itself as each row already resembles a joint distribution of an estimator. 
-#' Thus, I can simply calculate the standard estimator for each column.]
-
-# Define function to calculate the the standard error for the distribution. This
-# is done by calculating the IQR of the distribution and standardizing it by 
-# dividing it by the IQR of the standard normal distribution. This is the
-# non-parametric way to calculate the standard error, which is more robust than
-# the parametric sd and mean.
-
-calculate_boots_sigma <- function(x) {
-  (quantile(x, probs = .75,  na.rm = TRUE) - quantile(x, probs = .25, na.rm = TRUE)) /
-    (qnorm(.75) - qnorm(.25))
-}
-
-# Calculate standard estimator based on the bootstrap distribution
-boots_sigma <- apply(dist, 2, calculate_boots_sigma) # [Find another way to compute this.]
-boots_sigma_given <- apply(dist_given, 2, calculate_boots_sigma)
-
-## Step 3.3: Calculate the t-test for each limiting distribution ---------------
-
-# Divide each distribution through the corresponding bootstrap sigma and take
-# the absolute via loop instead of apply()
-dist_c <- matrix(0, nrow = nrow(dist), ncol = ncol(dist))
-
-for (j in 1:ncol(dist)) {
-  dist_c[, j] <- abs(dist[, j] / boots_sigma[j])
-}
-
-# Take the maximum value of each bootstrap in order to calculate the t-test
-t_test <- matrix(0, nrow = nrow(dist_c), ncol = 1)
-
-for ( k in 1:nrow(dist_c) ) {
-  t_test[k, ] <- max(dist_c[k, ])  
-}
-
-# t_test <- function(column) { max( abs( column / boots_sigma ) ) }
-# 
-# 
-# results_t_test       <- apply(dist, MARGIN = 1, FUN = t_test)
-# results_t_test_given <- apply(dist_given, MARGIN = 1, FUN = t_test)
-
-## Step 3.4:  Calculation of c_hat ---------------------------------------------
-
-# Calculation of the c_hat empirical (1-alpha)-quantile of the B bootstrap 
-# draws of t-test
-
-alpha <- .05
-c_hat <- quantile(t_test, 1 - alpha, na.rm = TRUE)
 
 
 # 4. Aggregated ATT(g,t) -------------------------------------------------------
@@ -621,6 +479,151 @@ att_et <- data.frame(cbind(eventime_timelist, att_et))
 # Calculate aggregated event study effects
 aggte_et <- mean(att_et$att_et)
 
+
+
+
+# 2. Standard Errors of ATT(g,t) -----------------------------------------------
+
+#' Multiplier Bootstrapping is relevant for confidence intervals and
+#' replacing values that are too small in the v
+if_matrix <- as.matrix(if_matrix)
+# How to get variance of inffun:
+# https://cran.r-project.org/web/packages/lava/vignettes/influencefunction.
+
+vcov_matrix <- t(if_matrix) %*% if_matrix * (1 / n_unique)
+
+# Basic matrix calculation to get variance and standard error
+var <- diag(vcov_matrix / n_unique)
+se <-  sqrt(var)
+
+se[se <= sqrt(.Machine$double.eps)*10] <- NA
+identifier <-  unique(which(is.na(se))) 
+
+# 3. Statistics via bootstrapping ----------------------------------------------
+
+# Defined Values for 3. 
+cluster <- length(unique(qwi$county_id))
+
+
+## Step 3.1.1: Multiplier Bootstrap Function -----------------------------------
+#' Program function for multiplier bootstrapping in order to create limiting 
+#' distribution of the influence function for each ATT(g,t) estimator. 
+#' Thereby, the function resembles the first two steps of the described 
+#' Algorithm 1 in Callaway & Sant'Anna (2021). 
+#' The bootstrapping_algorithm-function is commonly specified for 
+#' all influence function in order to allow for universality in usage.
+
+bootstrapping_algorithm <- function(inffunc_matrix, iter = 1000) {
+  
+  # Determine number of rows and columns for the multiplier bootstrap algorithm
+  inffunc_matrix <- as.matrix(inffunc_matrix)
+  n_row          <- nrow(inffunc_matrix)
+  n_col          <- ncol(inffunc_matrix)
+  
+  # Empty matrix, which is later filled with the distribution of 
+  boot_results <- Matrix::Matrix(0, nrow = iter, ncol = n_col)
+  
+  # (1) & (2) of Algorithm 1 in Callaway & Sant'Anna (2021)
+  for ( i in 1:iter ) {
+    
+    # Calculate Bernoulli Variates, which are used to select the influence 
+    # function values of each calculated ATT(g,t) f
+    # Advantage to common Bootstrapping: No re-sampling!
+    
+    # Bernoulli Variates according to Mammen (1993) which are iid
+    kappa <- ( sqrt(5) + 1 ) / 2
+    p <- kappa / sqrt(5)
+    bernoulli_variates <- rbinom(n_row, 1, p) # Is this right?
+    
+    # Sampling each column (aka influence function of each ATT(g,t)) with the 
+    # Bernoulli Variates
+    multiplied_if <- inffunc_matrix * bernoulli_variates
+    
+    # Bootstrap-Sampling-Distribution of influence function (n x (g*(t-1)) matrix)
+    boot_results[i, ] <- colMeans(multiplied_if)
+    
+  } # end of loop
+  
+  # Return bootstrap matrix with influence function
+  return(boot_results)
+  
+} # end of bootstrapping algorithm
+
+mat <- as.matrix(if_matrix)
+test <-  multiplier_bootstrap(mat, 1000)
+test1 <- bootstrapping_algorithm(mat, iter = 1000)
+delta <- test - test1
+colMeans(as.matrix(delta))
+
+## Step 3.1.2: Use of the MBoot Function ---------------------------------------
+
+#' Use the function to calculate the limiting distribution and scale it 
+#' with sqrt(n) [write reason for this here]. The limiting distribution equals 
+#' R*(g,t) in the proposed Algorithm 1 in CS. The calculations are bootstrapped 
+#' on county-level as the Bernoulli-Variates are cluster-specific.
+
+# Own
+data_boot <-  qwi
+
+dist <-  sqrt(cluster) * bootstrapping_algorithm(if_matrix)
+dist <- as.matrix(dist)
+
+# Given Multiplier function
+if_matrix <- as.matrix(if_matrix)
+dist_given <-  sqrt(cluster) * BMisc::multiplier_bootstrap(if_matrix, biters = 1000)
+dist_given <- as.matrix(dist_given)
+
+## Step 3.2:  Bootstrap Estimator of the Standard Deviation --------------------
+#' Calculate the bootstrap estimator of the standard deviation (thus,standard 
+#' error) [Note to myself: I do not need to multiply the results of the by 
+#' itself as each row already resembles a joint distribution of an estimator. 
+#' Thus, I can simply calculate the standard estimator for each column.]
+
+# Define function to calculate the the standard error for the distribution. This
+# is done by calculating the IQR of the distribution and standardizing it by 
+# dividing it by the IQR of the standard normal distribution. This is the
+# non-parametric way to calculate the standard error, which is more robust than
+# the parametric sd and mean.
+
+calculate_boots_sigma <- function(x) {
+  (quantile(x, probs = .75,  na.rm = TRUE) - quantile(x, probs = .25, na.rm = TRUE)) /
+    (qnorm(.75) - qnorm(.25))
+}
+
+# Calculate standard estimator based on the bootstrap distribution
+boots_sigma <- apply(dist, 2, calculate_boots_sigma) # [Find another way to compute this.]
+boots_sigma_given <- apply(dist_given, 2, calculate_boots_sigma)
+
+## Step 3.3: Calculate the t-test for each limiting distribution ---------------
+
+# Divide each distribution through the corresponding bootstrap sigma and take
+# the absolute via loop instead of apply()
+dist_c <- matrix(0, nrow = nrow(dist), ncol = ncol(dist))
+
+for (j in 1:ncol(dist)) {
+  dist_c[, j] <- abs(dist[, j] / boots_sigma[j])
+}
+
+# Take the maximum value of each bootstrap in order to calculate the t-test
+t_test <- matrix(0, nrow = nrow(dist_c), ncol = 1)
+
+for ( k in 1:nrow(dist_c) ) {
+  t_test[k, ] <- max(dist_c[k, ])  
+}
+
+# t_test <- function(column) { max( abs( column / boots_sigma ) ) }
+# 
+# 
+# results_t_test       <- apply(dist, MARGIN = 1, FUN = t_test)
+# results_t_test_given <- apply(dist_given, MARGIN = 1, FUN = t_test)
+
+## Step 3.4:  Calculation of c_hat ---------------------------------------------
+
+# Calculation of the c_hat empirical (1-alpha)-quantile of the B bootstrap 
+# draws of t-test
+
+alpha <- .05
+c_hat <- quantile(t_test, 1 - alpha, na.rm = TRUE)
 
 
 
