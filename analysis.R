@@ -430,21 +430,40 @@ dim(if_matrix)
 
 ## 4.3 Calendar Time Effects ---------------------------------------------------
 
-# Select for each group the post-treatment period
-# When 
-aggte_ct <- aggte_df[attgt.df$year >= group_min & attgt.df$year >= attgt.df$group,]
+# Select for each group the ATT(g,t)-effects of the post-treatment period for
+# in order to calculate heterogenous treatment effects w.r.t. to calendar time
+group_min <- min(grouplist)
+aggte_ct <- attgt_probs_df[attgt.df$year >= group_min & attgt.df$year >= attgt.df$group,]
+
+# Calculate the calendar time effect for each period of the post-treatment period
 calendar_timelist <- unique(aggte_ct$year)
-attgt_et
-# Calculate the calendar time effect for each period since the first group was treated
-att_gt <- sapply(calendar_timelist, function(t){
+att_gt <- sapply(calendar_timelist, function(t) {
                       df         <- aggte_ct[aggte_ct$year == t,]
                       group_prob <- df$probs / sum(df$probs)
                       attte_ct   <- sum(df$attgt * group_prob)
                   }
                  )
 
+# Calculating the calendar time effects for each period after the first group 
+# got treated based on the pre-selected ATT(g,t) in aggte_ct. Each ATT(g,t) 
+# is weighted with the probability of the being in the group when taking the
+# sum of all ATT(g,t) of a period.
+cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 3))
+colnames(cte_results) <- c("calendartime", "cte", "se")
+
+for (i in seq_along(calendar_timelist)) {
+  # Selecting the post-treatment year for which the calendar time effects will be calculated
+  calendar_time <- calendar_timelist[i]
+  df         <- aggte_ct[aggte_ct$year == calendar_time,]
+  # Calcualte the 
+  group_prob <- df$probs / sum(df$probs)
+  cte_results[i, "calendartime"] <- calendar_time
+  cte_results[i, "cte"]   <- sum(df$attgt * group_prob)
+}
+
+
 # Calculate the aggregated calendar time effect over all different calendar time effects
-agg_att_gt <- mean(att_gt)
+agg_att_gt <- mean(cte_results$cte)
 
 ## 4.4 Event Study Effect (with & w/o balanced groups) -------------------------
 
