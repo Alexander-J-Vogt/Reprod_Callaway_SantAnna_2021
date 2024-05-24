@@ -288,7 +288,9 @@ for (i in seq_along(grouplist)) {
 # Merging the data frame with all ATT(g,t) with the corresponding probability
 # to the belong to a group g
 attgt_probs_df <- merge(attgt.df, weights, by.x = "group" )  
+index_post   <- which(attgt_probs_df$year >= attgt_probs_df$group)
 
+# Creating index to select all ATT(g,t) in the post-treatment period. 
 
 ## Index and probability in cluster format (for group-specific ATT(g,t)) in order
 ## select the right county-estimates of the influence function
@@ -348,9 +350,8 @@ recover_se_from_if(if_matrix,
 
 ## 4.1 Simple Weighted Average of ATT(g,t) -------------------------------------
 
-# Creating index to select all ATT(g,t) in the post-treatment period. ATT(g,t)
-# of periods before a group was treated are dropped.
-index_post   <- which(attgt_probs_df$year >= attgt_probs_df$group)
+# Selecting the ATT(g,t) of each group in the post-treatment period for further
+# calculations. ATT(g,t) of a group before the period of treatment are dropped.
 aggte_simple <- attgt_probs_df[index_post, ]
 
 # Calculating the sum of probabilities corresponding to ATT(g,t) in the
@@ -384,27 +385,29 @@ se <- sqrt(var/nrow(simple_weighted_if))
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
 
-# Selecting the ATT(g,t) of each group in the post-treatment period for further
-# calculations.
-# gte_attgt_df <- attgt_probs_df 
-# theta_sel    <- rep(NA, nrow(gte_attgt_df))
-# gte_attgt_df <- cbind(attgt_probs_df,theta_sel)
+# Selecting the ATT(g,t) of each group in the post-treatment period in 
+# order to have the relevant ATT(g,t) for the group-time ATT(g,t)
 gte_df <- attgt_probs_df[index_post, ]
 
-# Group specific ATT
+# Creating an empty data frame, in which the group-time ATT(g,t) are going to
+# be saved (COMMENT: Do we need the column SE?)
 gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
 colnames(gte_results) <- c("group", "gte", "se")
 
+# Calculating the group-time average treatment effect by taking the mean of 
+# of all ATT(g,t) of a group
 for (i in seq_along(grouplist)) {
   g <- grouplist[i]
   gte_results[i, "group"] <- g
   gte_results[i, "gte" ]  <- mean(gte_df[gte_df$group == g, "attgt"])
 }
 
-# Aggregated GTE by population weights
+# Calculating the overall average treatment effect of the group-time 
+# average treatment effect. Thereby, each group-time average treatment
+# effect is weighted by the probability of being in group g.
 agg_gte_results <- sum(gte_results$gte * weights$probs) / sum(weights$probs)
 
-min_time <- min(timelist)
+
 # Recover Standard errors
 data_gte <- arrange(qwi, date_y, county_id)
 index_g2004_row <- which(data_gte$date_y == time_min & (data_gte$group == 2004 | data_gte$group == 0))
