@@ -256,6 +256,7 @@ for (g in grouplist) {
 
 
 
+
 # 4. Aggregated ATT(g,t) -------------------------------------------------------
 
 ## 4.0 Preparation of probabilities & vectors ----------------------------------
@@ -265,9 +266,9 @@ data <- qwi
 time_min <- min(data$date_y)
 time_max <- max(data$date_y)
 
-# Calculation of the probability to belong to a treated group g   
+# Calculation of the probability to belong to a treated group g.   
 # Preparing an empty data frame, which will be filled with probability 
-# to belong to group g
+# to belong to group g.
 weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
 colnames(weights) <- c("group", "size", "probs")
 
@@ -288,10 +289,10 @@ for (i in seq_along(grouplist)) {
 # to the belong to a group g
 attgt_probs_df <- merge(attgt.df, weights, by.x = "group" )  
 
-## Might not be relevant.
+
 ## Index and probability in cluster format (for group-specific ATT(g,t)) in order
 ## select the right county-estimates of the influence function
-prob_list <- data_agg |>
+prob_list <- data |>
   filter(date_y == time_min) |>
   select(county_id, group, date_y)
 
@@ -303,6 +304,7 @@ for ( g in grouplist ) {
   assign(as.vector(paste0("index_post_", g)), which(prob_list$group == g | prob_list$group == 0))
 }
 
+## Might not be relevant ----
 # Function: Selecting the right influence function estimators & calculating the SE
 
 recover_se_from_if <- function(matrix, 
@@ -344,36 +346,37 @@ recover_se_from_if(if_matrix,
                    version = "overall",
                    index_col = index_post)
 
-## 4.1 Simple Weighted ATT(g,t) ------------------------------------------------
+## 4.1 Simple Weighted Average of ATT(g,t) -------------------------------------
 
-# Creating index 
-index_post <- which(attgt.df$year >= attgt.df$group)
-aggte_simple <- aggte_df[index_post, ]
+# Creating index to select all ATT(g,t) in the post-treatment period. ATT(g,t)
+# of periods before a group was treated are dropped.
+index_post   <- which(attgt_probs_df$year >= attgt_probs_df$group)
+aggte_simple <- attgt_probs_df[index_post, ]
 
-# Calculate the sum of probabilites over *all relevant* ATT(g,t) (all groups & all time periods)
+# Calculating the sum of probabilities corresponding to ATT(g,t) in the
+# post-treatment period over all groups.
 kappa <- sum(aggte_simple$probs)
 
-
-# Actual Simple Weighted Overall Treatment Effect
-# Nominator: ATT(g,t) weighted with corresponding probability
-# Denominator: Sum of probability of each ATT(g,t) in post-treatment period 
-# taken over all groups
+# Simple Weighted Average of group-time average treatment effects:
+# Taking the sum over all ATT(g,t) and multiplying by the corresponding 
+# probability of being in group g. This sum is then divided by kappa.
 simple_att_est <- sum(aggte_simple$attgt * aggte_simple$probs) / kappa
 
+### inf.func ----
 # Recovering the standard error for the overall ATT weighted by the relative 
 # size of the group
 
 # Prepare influence function by selecting the relevant columns/ATT(g,t)
-simple_if      <- if_matrix[, relevant_att]
-simple_weights <- simple_aggte_df[relevant_att,]
-simple_weights <- simple_aggte_df$probs / sum(relevant_attgt$probs)
-simple_weights <- simple_weights[relevant_att]
+simple_if      <- if_matrix[, index_post]
+# simple_weights <- aggte_simple[index_post,]
+simple_weights <- aggte_simple$probs / sum(aggte_simple$probs)
+# simple_weights <- simple_weights[index_post]
 
 # Calculate for each county a weighted influence function
 simple_weighted_if <- simple_if %*% simple_weights
 
 # Calculate actual standard error of the aggregated ATT
-var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(simple_weighted_if))^2))
+var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(simple_weighted_if, ))^2))
 se <- sqrt(var/nrow(simple_weighted_if))
 
 ####### [WARNING]: Might need some adjustment as SE is too small: What about WIF?
@@ -381,31 +384,30 @@ se <- sqrt(var/nrow(simple_weighted_if))
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
 
-time_max <- max(timelist)
-
-# Group-treatment effects (gte)
-gte_attgt_df <- attgt.df 
-theta_sel    <- rep(NA, nrow(gte_attgt_df))
-gte_attgt_df <- cbind(gte_attgt_df,theta_sel)
-gte_attgt_df <- gte_attgt_df[relevant_att, ]
+# Selecting the ATT(g,t) of each group in the post-treatment period for further
+# calculations.
+# gte_attgt_df <- attgt_probs_df 
+# theta_sel    <- rep(NA, nrow(gte_attgt_df))
+# gte_attgt_df <- cbind(attgt_probs_df,theta_sel)
+gte_df <- attgt_probs_df[index_post, ]
 
 # Group specific ATT
 gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
 colnames(gte_results) <- c("group", "gte", "se")
 
-for ( i in 1:nrow(gte_results) ) {
-  grouptime <- grouplist[i]
-  gte_results[i, "group"] <- grouptime
-  gte_results[i, "gte" ]  <- mean(gte_attgt_df[gte_attgt_df$group == grouptime, "attgt"])
+for (i in seq_along(grouplist)) {
+  g <- grouplist[i]
+  gte_results[i, "group"] <- g
+  gte_results[i, "gte" ]  <- mean(gte_df[gte_df$group == g, "attgt"])
 }
 
 # Aggregated GTE by population weights
-agg_gte_results <- sum(gte_results$gte * simple_weights$probs) / sum(simple_weights$probs)
+agg_gte_results <- sum(gte_results$gte * weights$probs) / sum(weights$probs)
 
 min_time <- min(timelist)
 # Recover Standard errors
 data_gte <- arrange(qwi, date_y, county_id)
-index_g2004_row <- which(data_gte$date_y == min_time & (data_gte$group == 2004 | data_gte$group == 0))
+index_g2004_row <- which(data_gte$date_y == time_min & (data_gte$group == 2004 | data_gte$group == 0))
 index_g2004_col <- which(attgt.df$group == 2004 & attgt.df$year >= 2004)
 group_if <- if_matrix[index_g2004, index_g2004_col]
 
