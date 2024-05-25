@@ -249,9 +249,7 @@ for (g in grouplist) {
     # Add to the variable +1 as this is the row/column indicator for the 
     # ATT(g,t) data frame and influence function matrix
     number <- number + 1
-    
   }
-
 }
 
 
@@ -344,7 +342,7 @@ recover_se_from_if <- function(matrix,
 
 
 recover_se_from_if(if_matrix, 
-                   prob_df = aggte_df$probs,
+                   prob_df = attgt_probs_df$probs,
                    version = "overall",
                    index_col = index_post)
 
@@ -744,7 +742,7 @@ out1 <- did::att_gt(yname = "lnEmp",
                     xformla = ~white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc,
                     data = qwi,
                     control_group = "nevertreated",
-                    bstrap = TRUE,
+                    bstrap = FALSE,
                     est_method = "dr",
                     base_period = "varying")
 summary(out1)
@@ -752,4 +750,4 @@ summary(out1)
 
 ggdid((out1))
 
-aggte(out1, type = "dynamic", balance_e = 1)
+aggte(out1, type = "simple", balance_e = 1)
