@@ -473,7 +473,7 @@ for (i in seq_along(calendar_timelist)) {
 # Calculate the aggregated calendar time effect over all different calendar time effects
 agg_att_gt <- mean(cte_results$cte)
 
-## 4.4 Event Study Effect (with & w/o balanced groups) -------------------------
+## 4.4 Event Study Design -------------------------
 
 # Indicator on how many periods a group should have experienced a treatment 
 # NULL if balance group is not asked for
@@ -488,6 +488,29 @@ attgt_et$eventtime <- attgt_et$year - attgt_et$group
 # Exclude pre-treatment
 attgt_et <- attgt_et[attgt_et$eventtime >= 0, ]
 
+### 4.4.1 Event Study Effect ---------------------------------------------------
+# List of unique eventtime
+
+# Calculation of the event study effect
+eventime_timelist <- unique(attgt_et$eventtime)
+att_et <- sapply(eventime_timelist, function(et) {
+                      df         <- attgt_et[attgt_et$eventtime == et, ]
+                      group_prob <- df$probs / sum(df$probs)
+                      attte_et   <- sum(df$attgt * group_prob)
+                  }
+                 )
+
+att_et <- data.frame(cbind(eventime_timelist, att_et))
+
+# Calculate aggregated event study effects
+aggte_et <- mean(att_et$att_et)
+
+### 4.4.2 Eventstudy with balanced group ---------------------------------------
+
+# Indicator on how many periods a group should have experienced a treatment 
+# NULL if balance group is not asked for
+balance_groups <- 1
+
 # List of unique eventtime
 grouplist_et <- unique(attgt_et$group)
 
@@ -495,7 +518,7 @@ grouplist_et <- unique(attgt_et$group)
 # aka how many periods should a group have been experiencing a treatment/policy
 # -> If yes, than the ATT(g,g+t) will be balanced 
 # -> if not, the event study effect are calculated for every available event time
-if ( !is.null(balance_groups) ) {
+
   # Calculate the observed number of event time per group
   att_per_group <- sapply(grouplist_et, function(g){
     df <- attgt_et[attgt_et$group == g,]
@@ -521,29 +544,26 @@ if ( !is.null(balance_groups) ) {
   groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
   
   # Balanced data frame
-  attgt_et <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
-}
+  attgt_et_bal <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
+
 
 # Calculation of the event study effect
 eventime_timelist <- unique(attgt_et$eventtime)
-att_et <- sapply(eventime_timelist, function(et) {
-                      df         <- attgt_et[attgt_et$eventtime == et, ]
-                      group_prob <- df$probs / sum(df$probs)
-                      attte_et   <- sum(df$attgt * group_prob)
-                  }
-                 )
-
-if ( !is.null(balance_groups) ) {
-  att_et <- data.frame(cbind(eventime_timelist, att_et))
-  att_et <- att_et[att_et$eventime_timelist < balance_groups + 1,]
-} else {
-  att_et <- data.frame(cbind(eventime_timelist, att_et))
+att_et_bal <- sapply(eventime_timelist, function(et) {
+  df         <- attgt_et[attgt_et$eventtime == et, ]
+  group_prob <- df$probs / sum(df$probs)
+  attte_et   <- sum(df$attgt * group_prob)
 }
+)
+
+
+att_et_bal <- data.frame(cbind(eventime_timelist, att_et))
+att_et_bal <- att_et[att_et$eventime_timelist < balance_groups + 1,]
+
 
 
 # Calculate aggregated event study effects
-aggte_et <- mean(att_et$att_et)
-
+aggte_et_bal <- mean(att_et_bal$att_et)
 
 
 
