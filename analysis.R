@@ -20,12 +20,22 @@ library(BMisc)
 qwi <- read_rds(paste0("./", "01_Data/qwi_matched.RDS"))
 qwi <- data.table(qwi)
 qwi <- qwi |> 
-  select(-c("treat_g2004", "treat_g2006", "treat_g2007", "state_name",
-            "Median_Inc_1997_USD", "pop_nr_2000", "Emp", "nr_white_2000")) |>
   relocate(group, treated, .after =county_id) |>
   relocate(lnEmp, .after = date_y) |>
-  arrange(county_id, date_y) # if sth make problem this could be the reason!
-          
+  arrange(county_id, date_y) |>
+  mutate(lwhite_pop = log(white_pop_2000_perc),
+         lpoverty = log(poverty_allages_1997_perc),
+         lpop_1000s = log(pop_2000_nr_1000s),
+         lpop = log(pop_nr_2000),
+         lmedian_income_1000s = log(median_income_1997_1000s),
+         lmeduab_income = log(Median_Inc_1997_USD),
+         leduc = log(HS_1990_perc)
+         ) |>
+  select(-c("treat_g2004", "treat_g2006", "treat_g2007", "state_name",
+            "Emp", "Median_Inc_1997_USD", "pop_nr_2000", "nr_white_2000"))
+  
+          # if sth make problem this could be the reason!
+          # white_pop_2000_perc + poverty_allages_1997_perc + pop_2000_nr_1000s + median_income_1997_1000s + HS_1990_perc "pop_nr_2000",
 ################################################################################
 ## ---- Start with the replication of the group-time average treatment effect
 ################################################################################
@@ -120,7 +130,7 @@ unconditional_att <- function(outcome_post, outcome_pre, treatment) {
 
 # Specifying formula for ATT estimator
 spec_formula <- ~ -1 + white_pop_2000_perc + poverty_allages_1997_perc + pop_2000_nr_1000s + median_income_1997_1000s + HS_1990_perc
-
+spec_formula_log <- ~ -1 + lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + leduc
 # Determining unique time periods and groups
 timelist <- unique(qwi$date_y)
 grouplist <- sort(unique(qwi$group))
@@ -215,7 +225,7 @@ for (g in grouplist) {
     # data_cs <- data_wide[!is.na(.y0),]
     
     # Saving the covariates as matrix for the calculation of the ATT
-    covariates <- model.matrix(spec_formula, data_wide)
+    covariates <- model.matrix(spec_formula_log, data_wide)
     
     # Estimating the ATT(g,t) for the current iteration
     att <- DRDID::drdid_panel(y1 = data_wide$.y1,
@@ -470,7 +480,7 @@ agg_att_gt <- mean(cte_results$cte)
 balance_groups <- 1
 
 # Copy of attgt_df results
-attgt_et <- aggte_df
+attgt_et <- attgt_probs_df
 
 # Calculate eventtime 
 attgt_et$eventtime <- attgt_et$year - attgt_et$group
@@ -523,10 +533,17 @@ att_et <- sapply(eventime_timelist, function(et) {
                   }
                  )
 
-att_et <- data.frame(cbind(eventime_timelist, att_et))
+if ( !is.null(balance_groups) ) {
+  att_et <- data.frame(cbind(eventime_timelist, att_et))
+  att_et <- att_et[att_et$eventime_timelist < balance_groups + 1,]
+} else {
+  att_et <- data.frame(cbind(eventime_timelist, att_et))
+}
+
 
 # Calculate aggregated event study effects
 aggte_et <- mean(att_et$att_et)
+
 
 
 
@@ -739,7 +756,7 @@ out1 <- did::att_gt(yname = "lnEmp",
                     tname = "date_y",
                     idname = "county_id",
                     gname = "group",
-                    xformla = ~white_pop_2000_perc+poverty_allages_1997_perc+pop_2000_nr_1000s+median_income_1997_1000s+HS_1990_perc,
+                    xformla = ~lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + leduc,
                     data = qwi,
                     control_group = "nevertreated",
                     bstrap = FALSE,
@@ -750,4 +767,4 @@ summary(out1)
 
 ggdid((out1))
 
-aggte(out1, type = "simple", balance_e = 1)
+aggte(out1, type = "dynamic", balance_e = 1)
