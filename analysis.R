@@ -513,24 +513,10 @@ if (method == "calendar_att") {
   
  } # End of calendar-time effects if-clause
 
-}
 
-
-
-t <- calculating_agg_att(data = qwi,
-                         year = date_y,
-                         group = group,
-                         outcome = lnEmp,
-                         id = county_id,
-                         treatment = treated,
-                         formula = spec_formula,
-                         unconditional_ind = FALSE,
-                         method = "calendar_att",
-                         balanced = NULL
-)
 ## 4.4 Event Study Design -------------------------
 # Preparation of event time data in the case, the event study design is calculated
-if (method %in% c("unbalanced_eventstudy", "balanced_eventstudy")) {
+ if (method %in% c("unbalanced_eventstudy", "balanced_eventstudy")) {
     
   # Indicator on how many periods a group should have experienced a treatment 
   # NULL if balance group is not asked for
@@ -574,7 +560,21 @@ if (method %in% c("unbalanced_eventstudy", "balanced_eventstudy")) {
     
   } # End of unbalanced event-study effects if-clause
 
+}
+}
 
+
+t <- calculating_agg_att(data = qwi,
+                         year = date_y,
+                         group = group,
+                         outcome = lnEmp,
+                         id = county_id,
+                         treatment = treated,
+                         formula = spec_formula,
+                         unconditional_ind = FALSE,
+                         method = "unbalanced_eventstudy",
+                         balanced = NULL
+)
 ### 4.4.2 Eventstudy with balanced group ---------------------------------------
   if (method == "balanced_eventstudy" & !is.null(balance_groups)) {
     
