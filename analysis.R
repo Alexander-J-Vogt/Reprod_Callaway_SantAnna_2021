@@ -560,8 +560,6 @@ att_et_bal <- sapply(eventime_timelist, function(et) {
 att_et_bal <- data.frame(cbind(eventime_timelist, att_et))
 att_et_bal <- att_et[att_et$eventime_timelist < balance_groups + 1,]
 
-
-
 # Calculate aggregated event study effects
 aggte_et_bal <- mean(att_et_bal$att_et)
 
