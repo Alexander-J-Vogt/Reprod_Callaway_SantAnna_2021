@@ -33,9 +33,7 @@ qwi <- qwi |>
          ) |>
   select(-c("treat_g2004", "treat_g2006", "treat_g2007", "state_name",
             "Emp", "Median_Inc_1997_USD", "pop_nr_2000", "nr_white_2000"))
-  
-          # if sth make problem this could be the reason!
-          # white_pop_2000_perc + poverty_allages_1997_perc + pop_2000_nr_1000s + median_income_1997_1000s + HS_1990_perc "pop_nr_2000",
+
 ################################################################################
 ## ---- Start with the replication of the group-time average treatment effect
 ################################################################################
@@ -123,7 +121,7 @@ unconditional_att <- function(outcome_post, outcome_pre, treatment) {
   
   # Saving the results in list
   results <- list()
-  results <- list(att = att, inf.func.att = inf_df)
+  results <- list(ATT = att, att.inf.func = inf_df)
 }
 
 #---- Start up & Define variables ----------------------------------------------
@@ -219,31 +217,29 @@ for (g in grouplist) {
     print(paste0("Iteration: ", number))
     print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
     
-    
-    
     # Saving the covariates as matrix for the calculation of the ATT
     covariates <- model.matrix(spec_formula_log, data_wide)
     
     if (unconditional == TRUE) {
-    att <- unconditional_att(outcome_post = data_wide$.y1,
-                             outcome_pre  = data_wide$.y0,
-                             treatment    = data_wide$treat)
+      
+      att <- unconditional_att(outcome_post = data_wide$.y1,
+                               outcome_pre  = data_wide$.y0,
+                               treatment    = data_wide$treat)
+      
     } else if (unconditional == FALSE) {
     
-    # Estimating the ATT(g,t) for the current iteration
-    att <- DRDID::drdid_panel(y1 = data_wide$.y1,
-                              y0 = data_wide$.y0,
-                              D  = data_wide$treat,
-                              covariates = covariates,
-                              inffunc    = TRUE,
-                              boot       = FALSE)
+      # Estimating the ATT(g,t) for the current iteration
+      att <- DRDID::drdid_panel(y1 = data_wide$.y1,
+                                y0 = data_wide$.y0,
+                                D  = data_wide$treat,
+                                covariates = covariates,
+                                inffunc    = TRUE,
+                                boot       = FALSE)
     }
     # att <- dr_att_estimator(outcome_post = data_wide$.y1, 
     #                         outcome_pre = data_wide$.y0,
     #                         treatment  = data_wide$treat,
     #                         covariates = covariates)
-    # recover att
-    #att.gt.ls[[number]]<- list(attgt = att$ATT, group = g, period = t + 1)
     
     # Filling the data frame with values of ATT(g,t) 
     attgt.df[number, 1] <- att$ATT 
@@ -265,8 +261,6 @@ for (g in grouplist) {
     number <- number + 1
   }
 }
-
-
 
 
 # 4. Aggregated ATT(g,t) -------------------------------------------------------
@@ -360,6 +354,10 @@ recover_se_from_if(if_matrix,
                    version = "overall",
                    index_col = index_post)
 
+method <- "simple_att"
+
+if (method == "simple_att") {
+
 ## 4.1 Simple Weighted Average of ATT(g,t) -------------------------------------
 
 # Selecting the ATT(g,t) of each group in the post-treatment period for further
@@ -392,10 +390,15 @@ simple_weighted_if <- simple_if %*% simple_weights
 var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(simple_weighted_if, ))^2))
 se <- sqrt(var/nrow(simple_weighted_if))
 
-####### [WARNING]: Might need some adjustment as SE is too small: What about WIF?
+# Save partially and overall ATT
+result <- list(partial_att = 0, overall_att = simple_att_est)
 
+####### [WARNING]: Might need some adjustment as SE is too small: What about WIF?
+}
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
+
+if (method == "group_att")
 
 # Selecting the ATT(g,t) of each group in the post-treatment period in 
 # order to have the relevant ATT(g,t) for the group-time ATT(g,t)
@@ -440,6 +443,7 @@ recover_se_from_if(if_matrix,
 # Check if _matrix! Does each row consist of that what I think it does?
 dim(if_matrix)
 
+if (method == "calendar_att") {
 ## 4.3 Calendar Time Effects ---------------------------------------------------
 
 # Select for each group the ATT(g,t)-effects of the post-treatment period for
@@ -476,7 +480,10 @@ for (i in seq_along(calendar_timelist)) {
 
 # Calculate the aggregated calendar time effect over all different calendar time effects
 agg_att_gt <- mean(cte_results$cte)
+}
 
+if (method %in% c("unbalanced_eventstudy", "balanced_eventstudy")) {
+  
 ## 4.4 Event Study Design -------------------------
 
 # Indicator on how many periods a group should have experienced a treatment 
@@ -492,6 +499,9 @@ attgt_et$eventtime <- attgt_et$year - attgt_et$group
 # Exclude pre-treatment
 attgt_et <- attgt_et[attgt_et$eventtime >= 0, ]
 
+}
+
+if (method == "unbalanced_eventstudy") {
 ### 4.4.1 Event Study Effect ---------------------------------------------------
 # List of unique eventtime
 
@@ -508,7 +518,9 @@ att_et <- data.frame(cbind(eventime_timelist, att_et))
 
 # Calculate aggregated event study effects
 aggte_et <- mean(att_et$att_et)
+}
 
+if (method == "balanced_eventstudy") {
 ### 4.4.2 Eventstudy with balanced group ---------------------------------------
 
 # Indicator on how many periods a group should have experienced a treatment 
@@ -566,7 +578,7 @@ att_et_bal <- att_et[att_et$eventime_timelist < balance_groups + 1,]
 
 # Calculate aggregated event study effects
 aggte_et_bal <- mean(att_et_bal$att_et)
-
+}
 
 
 
