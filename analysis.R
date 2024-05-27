@@ -135,7 +135,7 @@ calculating_agg_att <- function(data,
                                 id,
                                 treatment,
                                 formula,
-                                unconditional = FALSE,
+                                unconditional_ind = FALSE,
                                 method,
                                 balanced
                                 ) {
@@ -143,7 +143,7 @@ calculating_agg_att <- function(data,
 #---- Start up & Define variables ----------------------------------------------
 
 # Define data within the function
-data_original <- qwi
+data_original <- data
 data_original <- data_original |>
   rename(year = date_y,
          group = group,
@@ -174,10 +174,10 @@ if_matrix <- Matrix::Matrix(data = 0,
 
 # Define whether the conditional or unconditional parallel trend assumption is
 # implemented.
-unconditional <- TRUE
+unconditional <- unconditional_ind
 
 # Define pre-covariates
-covariate_formula <-  
+covariate_formula <- formula 
 
 # 1. ATT(g,t) via double loop -------------------------------------------------
 
@@ -219,8 +219,7 @@ for (g in grouplist) {
     
     # # Create treatment indicator and date variables as character # Can be deleted 
      data_sel <- data_sel|> 
-       mutate(#date = paste0("y", date_y), 
-                treat = ifelse(group == g, 1, 0))
+       mutate(treat = ifelse(group == g, 1, 0))
     
     # If condition to check if the dataset contians excately two year.
     # If this is not the case, than the code jumps into the next loop.
@@ -244,7 +243,7 @@ for (g in grouplist) {
     print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
     
     # Saving the covariates as matrix for the calculation of the ATT
-    covariates <- model.matrix(spec_formula_log, data_wide)
+    covariates <- model.matrix(covariate_formula, data_wide)
     
     if (unconditional == TRUE) {
       
@@ -252,7 +251,7 @@ for (g in grouplist) {
                                outcome_pre  = data_wide$.y0,
                                treatment    = data_wide$treat)
       
-    } else if (unconditional == FALSE) {
+    } else {
     
       # Estimating the ATT(g,t) for the current iteration
       att <- DRDID::drdid_panel(y1 = data_wide$.y1,
@@ -262,10 +261,6 @@ for (g in grouplist) {
                                 inffunc    = TRUE,
                                 boot       = FALSE)
     }
-    # att <- dr_att_estimator(outcome_post = data_wide$.y1, 
-    #                         outcome_pre = data_wide$.y0,
-    #                         treatment  = data_wide$treat,
-    #                         covariates = covariates)
     
     # Filling the data frame with values of ATT(g,t) 
     attgt.df[number, 1] <- att$ATT 
@@ -287,94 +282,96 @@ for (g in grouplist) {
     number <- number + 1
   }
 }
+# 
+# list <- list(att = attgt.df, inf.func = if_matrix)
+# return(list)
 
-return(attgt.df)
-}
+
 
 # 4. Aggregated ATT(g,t) -------------------------------------------------------
 
 ## 4.0 Preparation of probabilities & vectors ----------------------------------
-
-# Set up of copy of original dataset and relevant min and max of 
-data <- data_original
-time_min <- min(data$date_y)
-time_max <- max(data$date_y)
-
-# Calculation of the probability to belong to a treated group g.   
-# Preparing an empty data frame, which will be filled with probability 
-# to belong to group g.
-weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
-colnames(weights) <- c("group", "size", "probs")
-
-# Calculate actual probabilities to belong to a group in a loop
-for (i in seq_along(grouplist)) {
   
-  # select group
-  g <- grouplist[i]
+  # Set up of copy of original dataset and relevant min and max of 
+  data <- data_original
+  time_min <- min(data$year)
+  time_max <- max(data$year)
   
-  # calculate group size and prob. of being in the group, 
-  # i.e., group size divided by unique population size
-  weights[i, 1] <- g
-  weights[i, 2] <- nrow(data[group == g & date_y == g, ])
-  weights[i, 3] <- weights[i, 2] / n_unique
-}
-
-# Merging the data frame with all ATT(g,t) with the corresponding probability
-# to the belong to a group g
-attgt_probs_df <- merge(attgt.df, weights, by.x = "group" )  
-index_post   <- which(attgt_probs_df$year >= attgt_probs_df$group)
-
-# Creating index to select all ATT(g,t) in the post-treatment period. 
-
-## Index and probability in cluster format (for group-specific ATT(g,t)) in order
-## select the right county-estimates of the influence function
-prob_list <- data |>
-  filter(date_y == time_min) |>
-  select(county_id, group, date_y)
-
-prob_list <- prob_list |> 
-  left_join(weights[, c("group", "probs")], by = "group", keep = NULL) |>
-  select(-c("date_y"))
-
-for ( g in grouplist ) {
-  assign(as.vector(paste0("index_post_", g)), which(prob_list$group == g | prob_list$group == 0))
-}
-
-## Might not be relevant ----
-# Function: Selecting the right influence function estimators & calculating the SE
-
-recover_se_from_if <- function(matrix, 
-                               prob_df, 
-                               version = c("overall", "group"), 
-                               index_col, 
-                               index_row) {
+  # Calculation of the probability to belong to a treated group g.   
+  # Preparing an empty data frame, which will be filled with probability 
+  # to belong to group g.
+  weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
+  colnames(weights) <- c("group", "size", "probs")
   
-  # Step 1: Filter relevant rows and cols
-  org_if <- as.matrix(matrix)
+  # Calculate actual probabilities to belong to a group in a loop
+  for (i in seq_along(grouplist)) {
     
-  # Two Cases: Overall vs Group-time effects
-  # Depending on the case the influence function is filtered for the specific 
-  # group (rows are excluded; index_row) or only the relevant ATT(g,t) in the
-  # post-treatment are selected (index_col)
-  if (version == "overall") {
-    if_mat <- org_if[, index_col]
-  } else {
-    if_mat <- org_if[index_row, index_post]
+    # select group
+    g <- grouplist[i]
+    
+    # calculate group size and prob. of being in the group, 
+    # i.e., group size divided by unique population size
+    weights[i, 1] <- g
+    weights[i, 2] <- nrow(data[group == g & year == g, ])
+    weights[i, 3] <- weights[i, 2] / n_unique
   }
   
-  # Weight each column depending on prob of row
-  group_weights <- prob_df[index_col] / sum(prob_df[index_col])
+  # Merging the data frame with all ATT(g,t) with the corresponding probability
+  # to the belong to a group g
+  attgt_probs_df <- merge(attgt.df, weights, by.x = "group" )  
+  index_post   <- which(attgt_probs_df$year >= attgt_probs_df$group)
   
-  # Calculate for each county a weighted influence function
-  weighted_if <- if_mat %*% group_weights
+  # Creating index to select all ATT(g,t) in the post-treatment period. 
   
-  # Calculate actual standard error of the aggregated ATT
-  var <- 1 /( nrow(weighted_if) - 1 ) * ( sum( (weighted_if - mean(weighted_if) )^2 ) )
-  se <- sqrt(var/nrow(weighted_if))
+  ## Index and probability in cluster format (for group-specific ATT(g,t)) in order
+  ## select the right county-estimates of the influence function
+  prob_list <- data |>
+    filter(year == time_min) |>
+    select(id, group, year)
   
-  #return se 
-  return(se)
-}
+  prob_list <- prob_list |> 
+    left_join(weights[, c("group", "probs")], by = "group", keep = NULL) |>
+    select(-c("year"))
+  
+  for ( g in grouplist ) {
+    assign(as.vector(paste0("index_post_", g)), which(prob_list$group == g | prob_list$group == 0))
+  }
+  
+  ## Might not be relevant ----
+  # Function: Selecting the right influence function estimators & calculating the SE
+  
+  recover_se_from_if <- function(matrix, 
+                                 prob_df, 
+                                 version = c("overall", "group"), 
+                                 index_col, 
+                                 index_row) {
+    
+    # Step 1: Filter relevant rows and cols
+    org_if <- as.matrix(matrix)
+      
+    # Two Cases: Overall vs Group-time effects
+    # Depending on the case the influence function is filtered for the specific 
+    # group (rows are excluded; index_row) or only the relevant ATT(g,t) in the
+    # post-treatment are selected (index_col)
+    if (version == "overall") {
+      if_mat <- org_if[, index_col]
+    } else {
+      if_mat <- org_if[index_row, index_post]
+    }
+    
+    # Weight each column depending on prob of row
+    group_weights <- prob_df[index_col] / sum(prob_df[index_col])
+    
+    # Calculate for each county a weighted influence function
+    weighted_if <- if_mat %*% group_weights
+    
+    # Calculate actual standard error of the aggregated ATT
+    var <- 1 /( nrow(weighted_if) - 1 ) * ( sum( (weighted_if - mean(weighted_if) )^2 ) )
+    se <- sqrt(var/nrow(weighted_if))
+    
+    #return se 
+    return(se)
+  }
 
 
 recover_se_from_if(if_matrix, 
@@ -384,41 +381,42 @@ recover_se_from_if(if_matrix,
 
 
 ## 4.1 Simple Weighted Average of ATT(g,t) -------------------------------------
-if (method == "simple_att") {
-
-  # Selecting the ATT(g,t) of each group in the post-treatment period for further
-  # calculations. ATT(g,t) of a group before the period of treatment are dropped.
-  aggte_simple <- attgt_probs_df[index_post, ]
+  if (method == "simple_att") {
   
-  # Calculating the sum of probabilities corresponding to ATT(g,t) in the
-  # post-treatment period over all groups.
-  kappa <- sum(aggte_simple$probs)
+    # Selecting the ATT(g,t) of each group in the post-treatment period for further
+    # calculations. ATT(g,t) of a group before the period of treatment are dropped.
+    aggte_simple <- attgt_probs_df[index_post, ]
+    
+    # Calculating the sum of probabilities corresponding to ATT(g,t) in the
+    # post-treatment period over all groups.
+    kappa <- sum(aggte_simple$probs)
+    
+    # Simple Weighted Average of group-time average treatment effects:
+    # Taking the sum over all ATT(g,t) and multiplying by the corresponding 
+    # probability of being in group g. This sum is then divided by kappa.
+    simple_att_est <- sum(aggte_simple$attgt * aggte_simple$probs) / kappa
+    
+    ### inf.func ----
+    # Recovering the standard error for the overall ATT weighted by the relative 
+    # size of the group
+    
+    # Prepare influence function by selecting the relevant columns/ATT(g,t)
+    simple_if      <- if_matrix[, index_post]
+    # simple_weights <- aggte_simple[index_post,]
+    simple_weights <- aggte_simple$probs / sum(aggte_simple$probs)
+    # simple_weights <- simple_weights[index_post]
+    
+    # Calculate for each county a weighted influence function
+    simple_weighted_if <- simple_if %*% simple_weights
+    
+    # Calculate actual standard error of the aggregated ATT
+    var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(as.vector(simple_weighted_if)))^2))
+    se <- sqrt(var/nrow(simple_weighted_if))
+    
+    # Save partially and overall ATT (NO parial effects)
+    result <- list(overall_att = simple_att_est)
   
-  # Simple Weighted Average of group-time average treatment effects:
-  # Taking the sum over all ATT(g,t) and multiplying by the corresponding 
-  # probability of being in group g. This sum is then divided by kappa.
-  simple_att_est <- sum(aggte_simple$attgt * aggte_simple$probs) / kappa
-  
-  ### inf.func ----
-  # Recovering the standard error for the overall ATT weighted by the relative 
-  # size of the group
-  
-  # Prepare influence function by selecting the relevant columns/ATT(g,t)
-  simple_if      <- if_matrix[, index_post]
-  # simple_weights <- aggte_simple[index_post,]
-  simple_weights <- aggte_simple$probs / sum(aggte_simple$probs)
-  # simple_weights <- simple_weights[index_post]
-  
-  # Calculate for each county a weighted influence function
-  simple_weighted_if <- simple_if %*% simple_weights
-  
-  # Calculate actual standard error of the aggregated ATT
-  var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(as.vector(simple_weighted_if)))^2))
-  se <- sqrt(var/nrow(simple_weighted_if))
-  
-  # Save partially and overall ATT (NO parial effects)
-  result <- list(overall_att = simple_att_est)
-
+  }
 }
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
