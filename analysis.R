@@ -1,5 +1,5 @@
 ################################################################################
-#Reproduction of Callaway & Sant'Anna (2021)
+# Reproduction of Callaway & Sant'Anna (2021)
 ################################################################################
 
 # Remove exisitng environment
@@ -15,6 +15,8 @@ library(haven)
 library(DRDID)
 library(did)
 library(BMisc)
+
+# Please set here the working directory
 
 # load data
 qwi <- read_rds(paste0("./", "01_Data/qwi_matched.RDS"))
@@ -355,6 +357,9 @@ recover_se_from_if(if_matrix,
                    prob_df = attgt_probs_df$probs,
                    version = "overall",
                    index_col = index_post)
+t <- "all"
+
+if (c("simple_effect", "all") %in% t)
 
 ## 4.1 Simple Weighted Average of ATT(g,t) -------------------------------------
 
@@ -389,6 +394,8 @@ var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(simple_we
 se <- sqrt(var/nrow(simple_weighted_if))
 
 ####### [WARNING]: Might need some adjustment as SE is too small: What about WIF?
+
+list_simple = list(agg_simple = simple_att_est)
 
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
