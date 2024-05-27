@@ -466,21 +466,7 @@ recover_se_from_if(if_matrix,
     result <- list(partial_att = gte_results, overall_att = agg_gte_results)
     return(result)
   } # End of group-specific effects if-clause
-}
 
-
-
-t <- calculating_agg_att(data = qwi,
-                         year = date_y,
-                         group = group,
-                         outcome = lnEmp,
-                         id = county_id,
-                         treatment = treated,
-                         formula = spec_formula,
-                         unconditional_ind = TRUE,
-                         method = "group_att",
-                         balanced = NULL
-)
 
 
 
@@ -525,8 +511,23 @@ if (method == "calendar_att") {
   # Save final calendar time effects
   results <- list(partial_att = cte_results, overall_att = agg_att_ct)
   
-} # End of calendar-time effects if-clause
+ } # End of calendar-time effects if-clause
 
+}
+
+
+
+t <- calculating_agg_att(data = qwi,
+                         year = date_y,
+                         group = group,
+                         outcome = lnEmp,
+                         id = county_id,
+                         treatment = treated,
+                         formula = spec_formula,
+                         unconditional_ind = FALSE,
+                         method = "calendar_att",
+                         balanced = NULL
+)
 ## 4.4 Event Study Design -------------------------
 # Preparation of event time data in the case, the event study design is calculated
 if (method %in% c("unbalanced_eventstudy", "balanced_eventstudy")) {
