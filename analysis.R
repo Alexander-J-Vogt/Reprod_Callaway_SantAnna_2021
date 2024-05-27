@@ -359,226 +359,252 @@ method <- "simple_att"
 if (method == "simple_att") {
 
 ## 4.1 Simple Weighted Average of ATT(g,t) -------------------------------------
+  
+  # Selecting the ATT(g,t) of each group in the post-treatment period for further
+  # calculations. ATT(g,t) of a group before the period of treatment are dropped.
+  aggte_simple <- attgt_probs_df[index_post, ]
+  
+  # Calculating the sum of probabilities corresponding to ATT(g,t) in the
+  # post-treatment period over all groups.
+  kappa <- sum(aggte_simple$probs)
+  
+  # Simple Weighted Average of group-time average treatment effects:
+  # Taking the sum over all ATT(g,t) and multiplying by the corresponding 
+  # probability of being in group g. This sum is then divided by kappa.
+  simple_att_est <- sum(aggte_simple$attgt * aggte_simple$probs) / kappa
+  
+  ### inf.func ----
+  # Recovering the standard error for the overall ATT weighted by the relative 
+  # size of the group
+  
+  # Prepare influence function by selecting the relevant columns/ATT(g,t)
+  simple_if      <- if_matrix[, index_post]
+  # simple_weights <- aggte_simple[index_post,]
+  simple_weights <- aggte_simple$probs / sum(aggte_simple$probs)
+  # simple_weights <- simple_weights[index_post]
+  
+  # Calculate for each county a weighted influence function
+  simple_weighted_if <- simple_if %*% simple_weights
+  
+  # Calculate actual standard error of the aggregated ATT
+  var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(as.vector(simple_weighted_if)))^2))
+  se <- sqrt(var/nrow(simple_weighted_if))
+  
+  # Save partially and overall ATT (NO parial effects)
+  result <- list(overall_att = simple_att_est)
 
-# Selecting the ATT(g,t) of each group in the post-treatment period for further
-# calculations. ATT(g,t) of a group before the period of treatment are dropped.
-aggte_simple <- attgt_probs_df[index_post, ]
-
-# Calculating the sum of probabilities corresponding to ATT(g,t) in the
-# post-treatment period over all groups.
-kappa <- sum(aggte_simple$probs)
-
-# Simple Weighted Average of group-time average treatment effects:
-# Taking the sum over all ATT(g,t) and multiplying by the corresponding 
-# probability of being in group g. This sum is then divided by kappa.
-simple_att_est <- sum(aggte_simple$attgt * aggte_simple$probs) / kappa
-
-### inf.func ----
-# Recovering the standard error for the overall ATT weighted by the relative 
-# size of the group
-
-# Prepare influence function by selecting the relevant columns/ATT(g,t)
-simple_if      <- if_matrix[, index_post]
-# simple_weights <- aggte_simple[index_post,]
-simple_weights <- aggte_simple$probs / sum(aggte_simple$probs)
-# simple_weights <- simple_weights[index_post]
-
-# Calculate for each county a weighted influence function
-simple_weighted_if <- simple_if %*% simple_weights
-
-# Calculate actual standard error of the aggregated ATT
-var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(simple_weighted_if, ))^2))
-se <- sqrt(var/nrow(simple_weighted_if))
-
-# Save partially and overall ATT
-result <- list(partial_att = 0, overall_att = simple_att_est)
-
-####### [WARNING]: Might need some adjustment as SE is too small: What about WIF?
 }
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
 
-if (method == "group_att")
-
-# Selecting the ATT(g,t) of each group in the post-treatment period in 
-# order to have the relevant ATT(g,t) for the group-time ATT(g,t)
-gte_df <- attgt_probs_df[index_post, ]
-
-# Creating an empty data frame, in which the group-time ATT(g,t) are going to
-# be saved (COMMENT: Do we need the column SE?)
-gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
-colnames(gte_results) <- c("group", "gte", "se")
-
-# Calculating the group-time average treatment effect by taking the mean of 
-# of all ATT(g,t) of a group
-for (i in seq_along(grouplist)) {
-  g <- grouplist[i]
-  gte_results[i, "group"] <- g
-  gte_results[i, "gte" ]  <- mean(gte_df[gte_df$group == g, "attgt"])
-}
-
-# Calculating the overall average treatment effect of the group-time 
-# average treatment effect. Thereby, each group-time average treatment
-# effect is weighted by the probability of being in group g.
-agg_gte_results <- sum(gte_results$gte * weights$probs) / sum(weights$probs)
-
-
-# Recover Standard errors
-data_gte <- arrange(qwi, date_y, county_id)
-index_g2004_row <- which(data_gte$date_y == time_min & (data_gte$group == 2004 | data_gte$group == 0))
-index_g2004_col <- which(attgt.df$group == 2004 & attgt.df$year >= 2004)
-group_if <- if_matrix[index_g2004, index_g2004_col]
-
-group_if_weighted <- group_if %*% as.vector(simple_aggte_df[index_g2004_col,"probs"])
-
-
-recover_se_from_if(if_matrix, 
-                     prob_df = aggte_df$probs,
-                     version = "group",
-                     index_row = index_post_2004,
-                     index_col = index_post)
-
-
-
-# Check if _matrix! Does each row consist of that what I think it does?
-dim(if_matrix)
-
-if (method == "calendar_att") {
-## 4.3 Calendar Time Effects ---------------------------------------------------
-
-# Select for each group the ATT(g,t)-effects of the post-treatment period for
-# in order to calculate heterogenous treatment effects w.r.t. to calendar time
-group_min <- min(grouplist)
-aggte_ct <- attgt_probs_df[attgt.df$year >= group_min & attgt.df$year >= attgt.df$group,]
-
-# Calculate the calendar time effect for each period of the post-treatment period
-calendar_timelist <- unique(aggte_ct$year)
-att_gt <- sapply(calendar_timelist, function(t) {
-                      df         <- aggte_ct[aggte_ct$year == t,]
-                      group_prob <- df$probs / sum(df$probs)
-                      attte_ct   <- sum(df$attgt * group_prob)
-                  }
-                 )
-
-# Calculating the calendar time effects for each period after the first group 
-# got treated based on the pre-selected ATT(g,t) in aggte_ct. Each ATT(g,t) 
-# is weighted with the probability of the being in the group when taking the
-# sum of all ATT(g,t) of a period.
-cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 3))
-colnames(cte_results) <- c("calendartime", "cte", "se")
-
-for (i in seq_along(calendar_timelist)) {
-  # Selecting the post-treatment year for which the calendar time effects will be calculated
-  calendar_time <- calendar_timelist[i]
-  df         <- aggte_ct[aggte_ct$year == calendar_time,]
-  # Calcualte the 
-  group_prob <- df$probs / sum(df$probs)
-  cte_results[i, "calendartime"] <- calendar_time
-  cte_results[i, "cte"]   <- sum(df$attgt * group_prob)
-}
-
-
-# Calculate the aggregated calendar time effect over all different calendar time effects
-agg_att_gt <- mean(cte_results$cte)
-}
-
-if (method %in% c("unbalanced_eventstudy", "balanced_eventstudy")) {
+if (method == "group_att") {
   
-## 4.4 Event Study Design -------------------------
-
-# Indicator on how many periods a group should have experienced a treatment 
-# NULL if balance group is not asked for
-balance_groups <- 1
-
-# Copy of attgt_df results
-attgt_et <- attgt_probs_df
-
-# Calculate eventtime 
-attgt_et$eventtime <- attgt_et$year - attgt_et$group
-
-# Exclude pre-treatment
-attgt_et <- attgt_et[attgt_et$eventtime >= 0, ]
-
-}
-
-if (method == "unbalanced_eventstudy") {
-### 4.4.1 Event Study Effect ---------------------------------------------------
-# List of unique eventtime
-
-# Calculation of the event study effect
-eventime_timelist <- unique(attgt_et$eventtime)
-att_et <- sapply(eventime_timelist, function(et) {
-                      df         <- attgt_et[attgt_et$eventtime == et, ]
-                      group_prob <- df$probs / sum(df$probs)
-                      attte_et   <- sum(df$attgt * group_prob)
-                  }
-                 )
-
-att_et <- data.frame(cbind(eventime_timelist, att_et))
-
-# Calculate aggregated event study effects
-aggte_et <- mean(att_et$att_et)
-}
-
-if (method == "balanced_eventstudy") {
-### 4.4.2 Eventstudy with balanced group ---------------------------------------
-
-# Indicator on how many periods a group should have experienced a treatment 
-# NULL if balance group is not asked for
-balance_groups <- 1
-
-# List of unique eventtime
-grouplist_et <- unique(attgt_et$group)
-
-# Check if event study design is to be calculated with balanced groups or not
-# aka how many periods should a group have been experiencing a treatment/policy
-# -> If yes, than the ATT(g,g+t) will be balanced 
-# -> if not, the event study effect are calculated for every available event time
-
-  # Calculate the observed number of event time per group
-  att_per_group <- sapply(grouplist_et, function(g){
-    df <- attgt_et[attgt_et$group == g,]
-    n <- nrow(df)
-    n
-  })
-  att_per_group <- data.frame(grouplist_et, att_per_group)
-  colnames(att_per_group) <- c("eventtime", "abs_nr_att")
+  # Selecting the ATT(g,t) of each group in the post-treatment period in 
+  # order to have the relevant ATT(g,t) for the group-time ATT(g,t)
+  gte_df <- attgt_probs_df[index_post, ]
   
-  # Check if the observed number of event time equal or larger than
-  # balance_groups + 1
-  # groups_to_exclude inhibits all years, which are not observed longer than 
-  # "balance_groups"
-  # !!! More elegant solution
-  groups_to_exclude <- c()
-  for ( i in seq_along(att_per_group$eventtime) ) {
-    if ( att_per_group[i, 2] < balance_groups + 1 ) {
-      groups_to_exclude[i] <- att_per_group[i, 1]
-    } else {
-      next
-    }
+  # Creating an empty data frame, in which the group-time ATT(g,t) are going to
+  # be saved (COMMENT: Do we need the column SE?)
+  gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
+  colnames(gte_results) <- c("group", "gte", "se")
+  
+  # Calculating the group-time average treatment effect by taking the mean of 
+  # of all ATT(g,t) of a group
+  for (i in seq_along(grouplist)) {
+    g <- grouplist[i]
+    gte_results[i, "group"] <- g
+    gte_results[i, "gte" ]  <- mean(gte_df[gte_df$group == g, "attgt"])
   }
-  groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
   
-  # Balanced data frame
-  attgt_et_bal <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
+  # Calculating the overall average treatment effect of the group-time 
+  # average treatment effect. Thereby, each group-time average treatment
+  # effect is weighted by the probability of being in group g.
+  agg_gte_results <- sum(gte_results$gte * weights$probs) / sum(weights$probs)
+  
+  
+  # Recover Standard errors
+  data_gte <- arrange(qwi, date_y, county_id)
+  index_g2004_row <- which(data_gte$date_y == time_min & (data_gte$group == 2004 | data_gte$group == 0))
+  index_g2004_col <- which(attgt.df$group == 2004 & attgt.df$year >= 2004)
+  group_if <- if_matrix[index_g2004, index_g2004_col]
+  
+  group_if_weighted <- group_if %*% as.vector(simple_aggte_df[index_g2004_col,"probs"])
+  
+  
+  recover_se_from_if(if_matrix, 
+                       prob_df = aggte_df$probs,
+                       version = "group",
+                       index_row = index_post_2004,
+                       index_col = index_post)
+  
+  
+  
+  # Save group-specific effects
+  result <- list(partial_att = gte_results, overall_att = agg_gte_results)
+} # End of group-specific effects if-clause
+
+## 4.3 Calendar Time Effects ---------------------------------------------------
+# Gets activated if method is equal to calendar_att
+if (method == "calendar_att") {
+  
+  # Select for each group the ATT(g,t)-effects of the post-treatment period for
+  # in order to calculate heterogenous treatment effects w.r.t. to calendar time
+  group_min <- min(grouplist)
+  aggte_ct <- attgt_probs_df[attgt.df$year >= group_min & attgt.df$year >= attgt.df$group,]
+  
+  # Calculate the calendar time effect for each period of the post-treatment period
+  calendar_timelist <- unique(aggte_ct$year)
+  att_gt <- sapply(calendar_timelist, function(t) {
+                        df         <- aggte_ct[aggte_ct$year == t,]
+                        group_prob <- df$probs / sum(df$probs)
+                        attte_ct   <- sum(df$attgt * group_prob)
+                    }
+                   )
+  
+  # Calculating the calendar time effects for each period after the first group 
+  # got treated based on the pre-selected ATT(g,t) in aggte_ct. Each ATT(g,t) 
+  # is weighted with the probability of the being in the group when taking the
+  # sum of all ATT(g,t) of a period.
+  cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 3))
+  colnames(cte_results) <- c("calendartime", "cte", "se")
+  
+  for (i in seq_along(calendar_timelist)) {
+    # Selecting the post-treatment year for which the calendar time effects will be calculated
+    calendar_time <- calendar_timelist[i]
+    df         <- aggte_ct[aggte_ct$year == calendar_time,]
+    # Calcualte the 
+    group_prob <- df$probs / sum(df$probs)
+    cte_results[i, "calendartime"] <- calendar_time
+    cte_results[i, "cte"]   <- sum(df$attgt * group_prob)
+  }
+  
+  # Calculate the aggregated calendar time effect over all different calendar time effects
+  agg_att_ct <- mean(cte_results$cte)
+  
+  # Save final calendar time effects
+  results <- list(partial_att = cte_results, overall_att = agg_att_ct)
+  
+} # End of calendar-time effects if-clause
+
+## 4.4 Event Study Design -------------------------
+# Preparation of event time data in the case, the event study design is calculated
+if (method %in% c("unbalanced_eventstudy", "balanced_eventstudy")) {
+    
+  # Indicator on how many periods a group should have experienced a treatment 
+  # NULL if balance group is not asked for
+  balance_groups <- 1
+  
+  # Copy of attgt_df results
+  attgt_et <- attgt_probs_df
+  
+  # Calculate eventtime 
+  attgt_et$eventtime <- attgt_et$year - attgt_et$group
+  
+  # Exclude pre-treatment
+  attgt_et <- attgt_et[attgt_et$eventtime >= 0, ]
+  
+  # Setting the balanced group parameter. How many periods should a group have been
+  # treated. E.g., minimum 1 period, all groups with a treatment less than 1 period
+  # are excluded
+  balance_groups <- 1
+} # End of data-preparation if-clause
+
+### 4.4.1 Event Study Effect ---------------------------------------------------
+# Calculation of the unbalanced ecent study effect
+if (method == "unbalanced_eventstudy") {
+  # List of unique eventtime
+  
+  # Calculation of the event study effect
+  eventime_timelist <- unique(attgt_et$eventtime)
+  att_et <- sapply(eventime_timelist, function(et) {
+                        df         <- attgt_et[attgt_et$eventtime == et, ]
+                        group_prob <- df$probs / sum(df$probs)
+                        attte_et   <- sum(df$attgt * group_prob)
+                    }
+                   )
+  
+  et_results <- data.frame(cbind(eventime_timelist, att_et))
+  
+  # Calculate aggregated event study effects
+  agg_et <- mean(att_et$att_et)
+  
+  # Save final calendar time effects
+  results <- list(partial_att = et_results, overall_att = agg_et)
+  
+} # End of unbalanced event-study effects if-clause
 
 
-# Calculation of the event study effect
-eventime_timelist <- unique(attgt_et$eventtime)
-att_et_bal <- sapply(eventime_timelist, function(et) {
-  df         <- attgt_et[attgt_et$eventtime == et, ]
-  group_prob <- df$probs / sum(df$probs)
-  attte_et   <- sum(df$attgt * group_prob)
-}
-)
+### 4.4.2 Eventstudy with balanced group ---------------------------------------
+if (method == "balanced_eventstudy" & !is.null(balance_groups)) {
+  
+  # Indicator on how many periods a group should have experienced a treatment 
+  # NULL if balance group is not asked for
+  
+  # List of unique eventtime
+  grouplist_et <- unique(attgt_et$group)
+  
+  # Check if event study design is to be calculated with balanced groups or not
+  # aka how many periods should a group have been experiencing a treatment/policy
+  # -> If yes, than the ATT(g,g+t) will be balanced 
+  # -> if not, the event study effect are calculated for every available event time
+  
+    # Calculate the observed number of event time per group
+    att_per_group <- sapply(grouplist_et, function(g){
+      df <- attgt_et[attgt_et$group == g,]
+      n <- nrow(df)
+      n
+    })
+    att_per_group <- data.frame(grouplist_et, att_per_group)
+    colnames(att_per_group) <- c("eventtime", "abs_nr_att")
+    
+    # Check if the observed number of event time equal or larger than
+    # balance_groups + 1
+    # groups_to_exclude inhibits all years, which are not observed longer than 
+    # "balance_groups"
+    # !!! More elegant solution
+    groups_to_exclude <- c()
+    for ( i in seq_along(att_per_group$eventtime) ) {
+      if ( att_per_group[i, 2] < balance_groups + 1 ) {
+        groups_to_exclude[i] <- att_per_group[i, 1]
+      } else {
+        next
+      }
+    }
+    groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
+    
+    # Balanced data frame
+    attgt_et_bal <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
+  
+  
+  # Calculation of the event study effect
+  eventime_timelist <- unique(attgt_et_bal$eventtime)
+  att_et_bal <- sapply(eventime_timelist, function(et) {
+    df         <- attgt_et[attgt_et_bal$eventtime == et, ]
+    group_prob <- df$probs / sum(df$probs)
+    atte_et   <- sum(df$attgt * group_prob)
+  }
+  )
+  
+  att_et_bal <- data.frame(cbind(eventime_timelist, att_et_bal))
+  et_bal_results <- att_et_bal[att_et_bal$eventime_timelist < balance_groups + 1,]
+  
+  # Calculate aggregated event study effects
+  agg_bal_et <- mean(att_et_bal$att_et)
+  
+  # Save final calendar time effects
+  results <- list(partial_att = et_bal_results, overall_att = agg_bal_et)
+  
+} # End of balanced event study effects if-clause
 
 
-att_et_bal <- data.frame(cbind(eventime_timelist, att_et))
-att_et_bal <- att_et[att_et$eventime_timelist < balance_groups + 1,]
 
-# Calculate aggregated event study effects
-aggte_et_bal <- mean(att_et_bal$att_et)
-}
+
+
+
+
+
+
+
 
 
 
