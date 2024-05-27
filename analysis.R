@@ -415,57 +415,74 @@ recover_se_from_if(if_matrix,
     
     # Save partially and overall ATT (NO parial effects)
     result <- list(overall_att = simple_att_est)
-  
+    return(result)
   }
-}
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
+  
+  if (method == "group_att") {
+    
+    # Selecting the ATT(g,t) of each group in the post-treatment period in 
+    # order to have the relevant ATT(g,t) for the group-time ATT(g,t)
+    gte_df <- attgt_probs_df[index_post, ]
+    
+    # Creating an empty data frame, in which the group-time ATT(g,t) are going to
+    # be saved (COMMENT: Do we need the column SE?)
+    gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
+    colnames(gte_results) <- c("group", "gte", "se")
+    
+    # Calculating the group-time average treatment effect by taking the mean of 
+    # of all ATT(g,t) of a group
+    for (i in seq_along(grouplist)) {
+      g <- grouplist[i]
+      gte_results[i, "group"] <- g
+      gte_results[i, "gte" ]  <- mean(gte_df[gte_df$group == g, "attgt"])
+    }
+    
+    # Calculating the overall average treatment effect of the group-time 
+    # average treatment effect. Thereby, each group-time average treatment
+    # effect is weighted by the probability of being in group g.
+    agg_gte_results <- sum(gte_results$gte * weights$probs) / sum(weights$probs)
+    
+    
+    # # Recover Standard errors
+    # data_gte <- arrange(qwi, date_y, county_id)
+    # index_g2004_row <- which(data_gte$date_y == time_min & (data_gte$group == 2004 | data_gte$group == 0))
+    # index_g2004_col <- which(attgt.df$group == 2004 & attgt.df$year >= 2004)
+    # group_if <- if_matrix[index_g2004, index_g2004_col]
+    # 
+    # group_if_weighted <- group_if %*% as.vector(simple_aggte_df[index_g2004_col,"probs"])
+    # 
+    # 
+    # recover_se_from_if(if_matrix, 
+    #                      prob_df = aggte_df$probs,
+    #                      version = "group",
+    #                      index_row = index_post_2004,
+    #                      index_col = index_post)
+    # 
+    # 
+    
+    # Save group-specific effects
+    result <- list(partial_att = gte_results, overall_att = agg_gte_results)
+    return(result)
+  } # End of group-specific effects if-clause
+}
 
-if (method == "group_att") {
-  
-  # Selecting the ATT(g,t) of each group in the post-treatment period in 
-  # order to have the relevant ATT(g,t) for the group-time ATT(g,t)
-  gte_df <- attgt_probs_df[index_post, ]
-  
-  # Creating an empty data frame, in which the group-time ATT(g,t) are going to
-  # be saved (COMMENT: Do we need the column SE?)
-  gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
-  colnames(gte_results) <- c("group", "gte", "se")
-  
-  # Calculating the group-time average treatment effect by taking the mean of 
-  # of all ATT(g,t) of a group
-  for (i in seq_along(grouplist)) {
-    g <- grouplist[i]
-    gte_results[i, "group"] <- g
-    gte_results[i, "gte" ]  <- mean(gte_df[gte_df$group == g, "attgt"])
-  }
-  
-  # Calculating the overall average treatment effect of the group-time 
-  # average treatment effect. Thereby, each group-time average treatment
-  # effect is weighted by the probability of being in group g.
-  agg_gte_results <- sum(gte_results$gte * weights$probs) / sum(weights$probs)
-  
-  
-  # Recover Standard errors
-  data_gte <- arrange(qwi, date_y, county_id)
-  index_g2004_row <- which(data_gte$date_y == time_min & (data_gte$group == 2004 | data_gte$group == 0))
-  index_g2004_col <- which(attgt.df$group == 2004 & attgt.df$year >= 2004)
-  group_if <- if_matrix[index_g2004, index_g2004_col]
-  
-  group_if_weighted <- group_if %*% as.vector(simple_aggte_df[index_g2004_col,"probs"])
-  
-  
-  recover_se_from_if(if_matrix, 
-                       prob_df = aggte_df$probs,
-                       version = "group",
-                       index_row = index_post_2004,
-                       index_col = index_post)
-  
-  
-  
-  # Save group-specific effects
-  result <- list(partial_att = gte_results, overall_att = agg_gte_results)
-} # End of group-specific effects if-clause
+
+
+t <- calculating_agg_att(data = qwi,
+                         year = date_y,
+                         group = group,
+                         outcome = lnEmp,
+                         id = county_id,
+                         treatment = treated,
+                         formula = spec_formula,
+                         unconditional_ind = TRUE,
+                         method = "group_att",
+                         balanced = NULL
+)
+
+
 
 ## 4.3 Calendar Time Effects ---------------------------------------------------
 # Gets activated if method is equal to calendar_att
