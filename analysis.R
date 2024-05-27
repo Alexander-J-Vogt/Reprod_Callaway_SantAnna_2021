@@ -152,6 +152,8 @@ if_matrix <- Matrix::Matrix(data = 0,
                             ncol = nr_group * (nr_times - 1), 
                             sparse = TRUE)
 
+unconditional <- FALSE
+
 # 1. ATT(g,t) via double loop -------------------------------------------------
 
 
@@ -217,15 +219,16 @@ for (g in grouplist) {
     print(paste0("Iteration: ", number))
     print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
     
-    # Can probably get deleted 
-    # If the number of rows is odd, the BMisc::panel2cs2 function produces missing 
-    # in either .y1 or .y0. Thus, the NA's need to be removed, otherwise we don't
-    # yield any DiD-estimator
-    # data_cs <- data_wide[!is.na(.y1),]
-    # data_cs <- data_wide[!is.na(.y0),]
+    
     
     # Saving the covariates as matrix for the calculation of the ATT
     covariates <- model.matrix(spec_formula_log, data_wide)
+    
+    if (unconditional == TRUE) {
+    att <- unconditional_att(outcome_post = data_wide$.y1,
+                             outcome_pre  = data_wide$.y0,
+                             treatment    = data_wide$treat)
+    } else if (unconditional == FALSE) {
     
     # Estimating the ATT(g,t) for the current iteration
     att <- DRDID::drdid_panel(y1 = data_wide$.y1,
@@ -234,6 +237,7 @@ for (g in grouplist) {
                               covariates = covariates,
                               inffunc    = TRUE,
                               boot       = FALSE)
+    }
     # att <- dr_att_estimator(outcome_post = data_wide$.y1, 
     #                         outcome_pre = data_wide$.y0,
     #                         treatment  = data_wide$treat,
