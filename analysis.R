@@ -560,21 +560,6 @@ if (method == "calendar_att") {
     
   } # End of unbalanced event-study effects if-clause
 
-}
-}
-
-
-t <- calculating_agg_att(data = qwi,
-                         year = date_y,
-                         group = group,
-                         outcome = lnEmp,
-                         id = county_id,
-                         treatment = treated,
-                         formula = spec_formula,
-                         unconditional_ind = FALSE,
-                         method = "unbalanced_eventstudy",
-                         balanced = NULL
-)
 ### 4.4.2 Eventstudy with balanced group ---------------------------------------
   if (method == "balanced_eventstudy" & !is.null(balance_groups)) {
     
@@ -637,10 +622,9 @@ t <- calculating_agg_att(data = qwi,
     
   } # End of balanced event study effects if-clause
 
-} # End of data-preparation if-clause
+ } # End of data-preparation if-clause
 
-
-
+} # End of calculating_agg_att
 
 
 
