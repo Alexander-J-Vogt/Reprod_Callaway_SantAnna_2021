@@ -15,6 +15,7 @@ library(haven)
 library(DRDID)
 library(did)
 library(BMisc)
+library(stargazer)
 
 # load data
 qwi <- read_rds(paste0("./", "01_Data/qwi_matched.RDS"))
@@ -730,17 +731,16 @@ calculate_att_se <- function(data = qwi,
                                  treatment = treated,
                                  formula = spec_formula,
                                  unconditional_ind = FALSE,
-                                 method = "balanced_eventstudy",
+                                 method = "simple_att",
                                  balanced = 1)
   
-  start_time <- Sys.time()
-  end_time <- Sys.time()
-  time.taken <- round(end_time - start_time,2)
 
 method_opt <- c("simple_att", "group_specific", "calendar_att", "unbalanced_eventstudy", 
                 "balanced_eventstudy")
-for ( g in grouplist ) {
-  assign(paste0("est", g)), calculate_att_se(data = qwi,
+  start_time <- Sys.time()
+for ( m in method_opt ) {
+  paste0("Method: ", m)
+  assign(paste0("cond_est_", m), calculate_att_se(data = qwi,
                                              year_input = "date_y",
                                              group_input = "group",
                                              outcome_input = "lnEmp",
@@ -748,13 +748,33 @@ for ( g in grouplist ) {
                                              treatment = treated,
                                              formula = spec_formula,
                                              unconditional_ind = FALSE,
-                                             method = "balanced_eventstudy",
-                                             balanced = 1)
-  )
+                                             method = m,
+                                             balanced = 1))
+  
 }
+  end_time <- Sys.time()
+  time.taken <- round(end_time - start_time,2)
   
   
+  start_time <- Sys.time()
+for ( m in method_opt ) {
+  paste0("Method: ", m)
+  assign(paste0("uncond_est_", m), calculate_att_se(data = qwi,
+                                                  year_input = "date_y",
+                                                  group_input = "group",
+                                                  outcome_input = "lnEmp",
+                                                  id_input = "county_id",
+                                                  treatment = treated,
+                                                  formula = spec_formula,
+                                                  unconditional_ind = TRUE,
+                                                  method = m,
+                                                  balanced = 1))
   
+}
+  end_time <- Sys.time()
+  time.taken <- round(end_time - start_time,2)  
+  
+cond_twfe <- plm(lnEmp ) 
   
 # 2. Standard Errors of ATT(g,t) -----------------------------------------------
 
