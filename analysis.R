@@ -154,7 +154,7 @@ data_original <- data_original |>
 #   rename(year    = date_y, #!!sym(year_input),
 #          group   = group, #!!sym(group_input),
 #          outcome = lnEmp, #!!sym(outcome_input),
-#          id      = county_id# !!sym(id_input) 
+#          id      = county_id# !!sym(id_input)
 #   )
 # Determining unique time periods and groups
 timelist <- unique(data_original$year)
@@ -435,20 +435,20 @@ recover_se_from_if(if_matrix,
     # Creating an empty data frame, in which the group-time ATT(g,t) are going to
     # be saved (COMMENT: Do we need the column SE?)
     gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
-    colnames(gte_results) <- c("group", "gte", "se")
+    colnames(gte_results) <- c("time", "coef", "se")
     
     # Calculating the group-time average treatment effect by taking the mean of 
     # of all ATT(g,t) of a group
     for (i in seq_along(grouplist)) {
       g <- grouplist[i]
-      gte_results[i, "group"] <- g
-      gte_results[i, "gte" ]  <- mean(gte_df[gte_df$group == g, "attgt"])
+      gte_results[i, "time"] <- g
+      gte_results[i, "coef" ]  <- mean(gte_df[gte_df$group == g, "attgt"])
     }
     
     # Calculating the overall average treatment effect of the group-time 
     # average treatment effect. Thereby, each group-time average treatment
     # effect is weighted by the probability of being in group g.
-    agg_gte_results <- sum(gte_results$gte * weights$probs) / sum(weights$probs)
+    agg_gte_results <- sum(gte_results$coef * weights$probs) / sum(weights$probs)
     
     
     # # Recover Standard errors
@@ -484,22 +484,22 @@ recover_se_from_if(if_matrix,
     # in order to calculate heterogenous treatment effects w.r.t. to calendar time
     group_min <- min(grouplist)
     aggte_ct <- attgt_probs_df[attgt.df$year >= group_min & attgt.df$year >= attgt.df$group,]
+     calendar_timelist <- unique(aggte_ct$year)
     
-    # Calculate the calendar time effect for each period of the post-treatment period
-    calendar_timelist <- unique(aggte_ct$year)
-    att_gt <- sapply(calendar_timelist, function(t) {
-                          df         <- aggte_ct[aggte_ct$year == t,]
-                          group_prob <- df$probs / sum(df$probs)
-                          attte_ct   <- sum(df$attgt * group_prob)
-                      }
-                     )
+    # # Calculate the calendar time effect for each period of the post-treatment period
+    # att_gt <- sapply(calendar_timelist, function(t) {
+    #                       df         <- aggte_ct[aggte_ct$year == t,]
+    #                       group_prob <- df$probs / sum(df$probs)
+    #                       attte_ct   <- sum(df$attgt * group_prob)
+    #                   }
+    #                  )
     
     # Calculating the calendar time effects for each period after the first group 
     # got treated based on the pre-selected ATT(g,t) in aggte_ct. Each ATT(g,t) 
     # is weighted with the probability of the being in the group when taking the
     # sum of all ATT(g,t) of a period.
     cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 3))
-    colnames(cte_results) <- c("calendartime", "est", "se")
+    colnames(cte_results) <- c("time", "coef", "se")
     
     for (i in seq_along(calendar_timelist)) {
       # Selecting the post-treatment year for which the calendar time effects will be calculated
@@ -507,12 +507,12 @@ recover_se_from_if(if_matrix,
       df         <- aggte_ct[aggte_ct$year == calendar_time,]
       # Calcualte the 
       group_prob <- df$probs / sum(df$probs)
-      cte_results[i, "calendartime"] <- calendar_time
-      cte_results[i, "est"]   <- sum(df$attgt * group_prob)
+      cte_results[i, "time"] <- calendar_time
+      cte_results[i, "coef"]   <- sum(df$attgt * group_prob)
     }
     
     # Calculate the aggregated calendar time effect over all different calendar time effects
-    agg_att_ct <- mean(cte_results$est)
+    agg_att_ct <- mean(cte_results$coef)
     
     # Save final calendar time effects
     results <- list(partial_att = cte_results, overall_att = agg_att_ct)
@@ -557,16 +557,16 @@ recover_se_from_if(if_matrix,
                        )
       
       et_results <- data.frame(cbind(eventime_timelist, att_et))
-      
+      colnames(et_results) <- c("time", "coef")
       # Calculate aggregated event study effects
-      agg_et <- mean(et_results$att_et)
+      agg_et <- mean(et_results$coef)
       
       # Save final calendar time effects
       results <- list(partial_att = et_results, overall_att = agg_et)
       return(results)
     } # End of unbalanced event-study effects if-clause
 
-### 4.4.2 Eventstudy with balanced group ---------------------------------------
+## 4.4.2 Eventstudy with balanced group ---------------------------------------
     if (method == "balanced_eventstudy" & !is.null(balance_groups)) {
       
       # Indicator on how many periods a group should have experienced a treatment 
@@ -619,9 +619,10 @@ recover_se_from_if(if_matrix,
       
       att_et_bal <- data.frame(cbind(eventime_timelist, att_et_bal))
       et_bal_results <- att_et_bal[att_et_bal$eventime_timelist < balance_groups + 1,]
+      colnames(et_bal_results) <- c("time", "coef")
       
       # Calculate aggregated event study effects
-      agg_bal_et <- mean(att_et_bal$att_et)
+      agg_bal_et <- mean(et_bal_results$coef)
       
       # Save final calendar time effects
       results <- list(partial_att = et_bal_results, overall_att = agg_bal_et)
@@ -632,8 +633,18 @@ recover_se_from_if(if_matrix,
 
 } # End of calculating_agg_att
 
+est <- calculating_agg_att(data = qwi,
+                             year_input = "date_y",
+                             group_input = "group",
+                             outcome_input = "lnEmp",
+                             id_input = "county_id",
+                             treatment = treated,
+                             formula = spec_formula,
+                             unconditional_ind = FALSE,
+                             method = "balanced_eventstudy",
+                             balanced = 1)
 
-agg_att_se 
+est 
   
 multiplier_bootstrap <- 
   
@@ -646,7 +657,6 @@ multiplier_bootstrap <-
   b_res_overall <- list()
   for (i in 1:iter) {
   
-    
   n_row <- length(data$id)  
   # Bernoulli Variates according to Mammen (1993) which are iid
   kappa <- ( sqrt(5) + 1 ) / 2
@@ -667,17 +677,22 @@ multiplier_bootstrap <-
                                    treatment = treated,
                                    formula = spec_formula,
                                    unconditional_ind = FALSE,
-                                   method = "simple_att",
+                                   method = "group_att",
                                    balanced = FALSE)
   
   
   # if (method = "simple_att") {
     b_res_overall[[i]] <- b_est$overall_att
   # } else {
-  #   b_res_overll[[i]]  <- b_est$overall_att
-  #   b_res_partial[[i]] <- b_est$partial_att
+     # b_res_overll[[i]]  <- b_est$overall_att
+     b_res_partial[[i]] <- b_est$partial_att
   # }
-}
+  }
+  
+  b_res_overall <- unlist(b_res_overall)
+  se_overall <- sd(b_res_overall)
+  
+  
 
 # 2. Standard Errors of ATT(g,t) -----------------------------------------------
 
