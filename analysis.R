@@ -641,20 +641,21 @@ est <- calculating_agg_att(data = qwi,
                              treatment = treated,
                              formula = spec_formula,
                              unconditional_ind = FALSE,
-                             method = "balanced_eventstudy",
+                             method = "group_att",
                              balanced = 1)
 
 est 
   
-multiplier_bootstrap <- 
+multiplier_bootstrap <- function()
   
   data <- qwi
   data <- data |>
     rename(id = county_id) |>
     as.data.frame()
   method <- "simple_att"
-  iter <- 100
+  iter <- 10
   b_res_overall <- list()
+  b_res_partial <- list()
   for (i in 1:iter) {
   
   n_row <- length(data$id)  
@@ -670,27 +671,49 @@ multiplier_bootstrap <-
   b_data <- data |> filter(id %in% county)
    
   b_est <- calculating_agg_att(data = b_data,
-                                   year_input = "date_y",
-                                   group_input = "group",
-                                   outcome_input = "lnEmp",
-                                   id_input = "id",
-                                   treatment = treated,
-                                   formula = spec_formula,
-                                   unconditional_ind = FALSE,
-                                   method = "group_att",
-                                   balanced = FALSE)
+                               year_input = "date_y",
+                               group_input = "group",
+                               outcome_input = "lnEmp",
+                               id_input = "id",
+                               treatment = treated,
+                               formula = spec_formula,
+                               unconditional_ind = FALSE,
+                               method = "group_att",
+                               balanced = FALSE)
   
   
   # if (method = "simple_att") {
     b_res_overall[[i]] <- b_est$overall_att
   # } else {
      # b_res_overll[[i]]  <- b_est$overall_att
-     b_res_partial[[i]] <- b_est$partial_att
+     b_res_partial[[i]] <- t(as.matrix(b_est$partial_att$coef))
   # }
   }
   
+  # Calculation of se for partial effects
+  b_res_partial <- map_dfr(b_res_partial, as.data.frame)
+  se_partial <- apply(b_res_partial, 2, function(x) sd(x) / sqrt(length(x)))
+  
+  # Calculation of se for overall effects
   b_res_overall <- unlist(b_res_overall)
   se_overall <- sd(b_res_overall)
+  
+  est <- calculating_agg_att(data = qwi,
+                             year_input = "date_y",
+                             group_input = "group",
+                             outcome_input = "lnEmp",
+                             id_input = "county_id",
+                             treatment = treated,
+                             formula = spec_formula,
+                             unconditional_ind = FALSE,
+                             method = "group_att",
+                             balanced = 1)
+  
+  
+  est$partial_att$b_se <- se_partial
+
+}
+  
   
   
 
