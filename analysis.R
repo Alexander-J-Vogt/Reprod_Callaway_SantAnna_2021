@@ -426,7 +426,7 @@ recover_se_from_if(if_matrix,
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
   
-  if (method == "group_att") {
+  if (method == "group_specific") {
     
     # Selecting the ATT(g,t) of each group in the post-treatment period in 
     # order to have the relevant ATT(g,t) for the group-time ATT(g,t)
@@ -646,77 +646,116 @@ est <- calculating_agg_att(data = qwi,
 
 est 
   
-multiplier_bootstrap <- function()
+calculate_att_se <- function(data = qwi,
+                                 year_input = "date_y",
+                                 group_input = "group",
+                                 outcome_input = "lnEmp",
+                                 id_input = "county_id",
+                                 treatment = treated,
+                                 formula = spec_formula,
+                                 unconditional_ind = FALSE,
+                                 method = "group_att",
+                                 balanced = FALSE) {
   
   data <- qwi
-  data <- data |>
-    rename(id = county_id) |>
+  data_for_b <- data |>
+    rename(id = !!sym(id_input)) |>
     as.data.frame()
-  method <- "simple_att"
+  method <- method
   iter <- 10
   b_res_overall <- list()
   b_res_partial <- list()
   for (i in 1:iter) {
   
-  n_row <- length(data$id)  
-  # Bernoulli Variates according to Mammen (1993) which are iid
-  kappa <- ( sqrt(5) + 1 ) / 2
-  p <- kappa / sqrt(5)
-  bernoulli_variates <- rbinom(n_row, 1, p) # Is this right?
-  
-  # Select counties
-  county <- unique(data$id)
-  county <- county[bernoulli_variates == 1]
-  
-  b_data <- data |> filter(id %in% county)
-   
-  b_est <- calculating_agg_att(data = b_data,
-                               year_input = "date_y",
-                               group_input = "group",
-                               outcome_input = "lnEmp",
-                               id_input = "id",
-                               treatment = treated,
-                               formula = spec_formula,
-                               unconditional_ind = FALSE,
-                               method = "group_att",
-                               balanced = FALSE)
-  
-  
-  # if (method = "simple_att") {
+    n_row <- length(data_for_b$id)  
+    # Bernoulli Variates according to Mammen (1993) which are iid
+    kappa <- ( sqrt(5) + 1 ) / 2
+    p <- kappa / sqrt(5)
+    bernoulli_variates <- rbinom(n_row, 1, p) # Is this right?
+    
+    # Select counties
+    county <- unique(data_for_b$id)
+    county <- county[bernoulli_variates == 1]
+    
+    b_data <- data_for_b |> filter(id %in% county)
+     
+    b_est <- calculating_agg_att(data = b_data,
+                                 year_input = year_input,
+                                 group_input = group_input,
+                                 outcome_input = outcome_input,
+                                 id_input = "id",
+                                 treatment = treated,
+                                 formula = formula,
+                                 unconditional_ind = unconditional_ind,
+                                 method = method,
+                                 balanced = balanced)
+    
+    
+    if (method != "simple_att")  b_res_partial[[i]] <- t(as.matrix(b_est$partial_att$coef))
     b_res_overall[[i]] <- b_est$overall_att
-  # } else {
-     # b_res_overll[[i]]  <- b_est$overall_att
-     b_res_partial[[i]] <- t(as.matrix(b_est$partial_att$coef))
-  # }
   }
   
   # Calculation of se for partial effects
   b_res_partial <- map_dfr(b_res_partial, as.data.frame)
-  se_partial <- apply(b_res_partial, 2, function(x) sd(x) / sqrt(length(x)))
+  se_partial <- apply(b_res_partial, 2, sd)
   
   # Calculation of se for overall effects
   b_res_overall <- unlist(b_res_overall)
   se_overall <- sd(b_res_overall)
   
-  est <- calculating_agg_att(data = qwi,
-                             year_input = "date_y",
-                             group_input = "group",
-                             outcome_input = "lnEmp",
-                             id_input = "county_id",
+  est <- calculating_agg_att(data = data,
+                             year_input = year_input,
+                             group_input = group_input,
+                             outcome_input = outcome_input,
+                             id_input = id_input,
                              treatment = treated,
                              formula = spec_formula,
                              unconditional_ind = FALSE,
-                             method = "group_att",
-                             balanced = 1)
+                             method = method,
+                             balanced = balanced)
   
   
   est$partial_att$b_se <- se_partial
+  est$overall_att <- cbind(est$overall_att, se_overall)
+  colnames(est$overall_att) <- c("coef", "b_se")
+  
+  return(est)
+}
+  
+                calculate_att_se(data = qwi,
+                                 year_input = "date_y",
+                                 group_input = "group",
+                                 outcome_input = "lnEmp",
+                                 id_input = "county_id",
+                                 treatment = treated,
+                                 formula = spec_formula,
+                                 unconditional_ind = FALSE,
+                                 method = "balanced_eventstudy",
+                                 balanced = 1)
+  
+  start_time <- Sys.time()
+  end_time <- Sys.time()
+  time.taken <- round(end_time - start_time,2)
 
+method_opt <- c("simple_att", "group_specific", "calendar_att", "unbalanced_eventstudy", 
+                "balanced_eventstudy")
+for ( g in grouplist ) {
+  assign(paste0("est", g)), calculate_att_se(data = qwi,
+                                             year_input = "date_y",
+                                             group_input = "group",
+                                             outcome_input = "lnEmp",
+                                             id_input = "county_id",
+                                             treatment = treated,
+                                             formula = spec_formula,
+                                             unconditional_ind = FALSE,
+                                             method = "balanced_eventstudy",
+                                             balanced = 1)
+  )
 }
   
   
   
-
+  
 # 2. Standard Errors of ATT(g,t) -----------------------------------------------
 
 #' Multiplier Bootstrapping is relevant for confidence intervals and
@@ -859,9 +898,6 @@ for ( k in 1:nrow(dist_c) ) {
 
 alpha <- .05
 c_hat <- quantile(t_test, 1 - alpha, na.rm = TRUE)
-
-
-
 
 
 
