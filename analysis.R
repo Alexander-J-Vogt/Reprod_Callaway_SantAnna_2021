@@ -33,7 +33,11 @@ qwi <- qwi |>
          leduc = log(HS_1990_perc)
          ) |>
   select(-c("treat_g2004", "treat_g2006", "treat_g2007", "state_name",
-            "Emp", "Median_Inc_1997_USD", "pop_nr_2000", "nr_white_2000"))
+            "Emp", "Median_Inc_1997_USD", "pop_nr_2000", "nr_white_2000")) |>
+  mutate(post_treat = ifelse(date_y >= 2004, 1, 0)) |>
+  mutate(post_treat = ifelse(date_y >= 2006, 1, post_treat)) |>
+  mutate(post_treat = ifelse(date_y >= 2007, 1, post_treat))
+  
 
 ################################################################################
 ## ---- Start with the replication of the group-time average treatment effect
@@ -773,8 +777,14 @@ for ( m in method_opt ) {
 }
   end_time <- Sys.time()
   time.taken <- round(end_time - start_time,2)  
-  
-cond_twfe <- plm(lnEmp ) 
+
+
+cond_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated + 
+               + lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + 
+                 leduc, data = qwi, index = c("county_id", "date_y"), model = "within") 
+
+uncond_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated 
+               , data = qwi, index = c("county_id", "date_y"), model = "within") 
   
 # 2. Standard Errors of ATT(g,t) -----------------------------------------------
 
