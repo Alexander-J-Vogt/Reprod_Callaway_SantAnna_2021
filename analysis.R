@@ -110,7 +110,7 @@ unconditional_att <- function(outcome_post, outcome_pre, treatment) {
   # with the unsorted list and convert it to a data frame. Rearranging the 
   # data frame in order to have the right order of initial observations given
   # of outcome_post and outcome_pre. (Resource: lava package + explanation)
-  inf  <- IC(merged_coef)
+  inf  <- lava::IC(merged_coef)
   inf_df  <-  as.data.frame(inf)
   rownames <- as.vector(rownames(inf))
   rownames <- as.double(rownames)
@@ -148,9 +148,14 @@ data_original <- data_original |>
   rename(year    = !!sym(year_input),
          group   = !!sym(group_input),
          outcome = !!sym(outcome_input),
-         id      = !!sym(id_input) 
+         id      = !!sym(id_input)
          )
-
+# data_original <- data_original |>
+#   rename(year    = date_y, #!!sym(year_input),
+#          group   = group, #!!sym(group_input),
+#          outcome = lnEmp, #!!sym(outcome_input),
+#          id      = county_id# !!sym(id_input) 
+#   )
 # Determining unique time periods and groups
 timelist <- unique(data_original$year)
 grouplist <- sort(unique(data_original$group))
@@ -175,9 +180,10 @@ if_matrix <- Matrix::Matrix(data = 0,
 # Define whether the conditional or unconditional parallel trend assumption is
 # implemented.
 unconditional <- unconditional_ind
-
+# unconditional <- FALSE
 # Define pre-covariates
-covariate_formula <- formula 
+covariate_formula <- formula
+# covariate_formula <- spec_formula
 
 # 1. ATT(g,t) via double loop -------------------------------------------------
 
@@ -414,8 +420,8 @@ recover_se_from_if(if_matrix,
     se <- sqrt(var/nrow(simple_weighted_if))
     
     # Save partially and overall ATT (NO parial effects)
-    result <- list(overall_att = simple_att_est)
-    return(result)
+    results <- list(overall_att = simple_att_est)
+    return(results)
   }
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
@@ -463,8 +469,8 @@ recover_se_from_if(if_matrix,
     # 
     
     # Save group-specific effects
-    result <- list(partial_att = gte_results, overall_att = agg_gte_results)
-    return(result)
+    results <- list(partial_att = gte_results, overall_att = agg_gte_results)
+    return(results)
   } # End of group-specific effects if-clause
 
 
@@ -510,7 +516,7 @@ recover_se_from_if(if_matrix,
     
     # Save final calendar time effects
     results <- list(partial_att = cte_results, overall_att = agg_att_ct)
-  
+    return(results)
  } # End of calendar-time effects if-clause
 
 
@@ -520,7 +526,7 @@ recover_se_from_if(if_matrix,
       
     # Indicator on how many periods a group should have experienced a treatment 
     # NULL if balance group is not asked for
-    balance_groups <- 1
+    # balance_groups <- 1
     
     # Copy of attgt_df results
     attgt_et <- attgt_probs_df
@@ -557,7 +563,7 @@ recover_se_from_if(if_matrix,
       
       # Save final calendar time effects
       results <- list(partial_att = et_results, overall_att = agg_et)
-      
+      return(results)
     } # End of unbalanced event-study effects if-clause
 
 ### 4.4.2 Eventstudy with balanced group ---------------------------------------
@@ -577,7 +583,7 @@ recover_se_from_if(if_matrix,
         # Calculate the observed number of event time per group
         att_per_group <- sapply(grouplist_et, function(g){
           df <- attgt_et[attgt_et$group == g,]
-          n <- nrow(df)
+          n  <- nrow(df)
           n
         })
         att_per_group <- data.frame(grouplist_et, att_per_group)
@@ -619,7 +625,7 @@ recover_se_from_if(if_matrix,
       
       # Save final calendar time effects
       results <- list(partial_att = et_bal_results, overall_att = agg_bal_et)
-      
+      return(results)
     } # End of balanced event study effects if-clause
 
   } # End of data-preparation if-clause
@@ -635,7 +641,9 @@ multiplier_bootstrap <-
   data <- data |>
     rename(id = county_id) |>
     as.data.frame()
-  
+  method <- "simple_att"
+  iter <- 100
+  b_res_overall <- list()
   for (i in 1:iter) {
   
     
@@ -659,16 +667,17 @@ multiplier_bootstrap <-
                                    treatment = treated,
                                    formula = spec_formula,
                                    unconditional_ind = FALSE,
-                                   method = "unbalanced_eventstudy",
-                                   balanced = NULL)
+                                   method = "simple_att",
+                                   balanced = FALSE)
   
   
-  if (method = "simple_att") {
+  # if (method = "simple_att") {
     b_res_overall[[i]] <- b_est$overall_att
-  } else {
-    b_res_overll[[i]] <- b_est$overall_att
-    b_res_partial[[i]] <- b_est$partial_att
-  }
+  # } else {
+  #   b_res_overll[[i]]  <- b_est$overall_att
+  #   b_res_partial[[i]] <- b_est$partial_att
+  # }
+}
 
 # 2. Standard Errors of ATT(g,t) -----------------------------------------------
 
