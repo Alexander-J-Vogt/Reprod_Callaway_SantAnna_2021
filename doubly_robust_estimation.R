@@ -57,8 +57,8 @@ nr_group <- length(grouplist)
 nr_times <- length(timelist)
 
 data <- qwi
-g <- 2004
-t <- 2003
+g <- 2006
+t <- 2006
 
 if(t >= g) {
   reference_year <- g - 1
@@ -135,8 +135,7 @@ reg <- lm(lnEmp ~ treat + date_y + date_y * treat, data_alternative)
 # Function to calculate the unconditional average treatment effect on the treated
 # ATT is calculated by simply taking the difference of the treatment effects of
 # the pre- and post-treatment assuming that the parallel trend assumption holds.
-basic_att <- function (outcome_post, outcome_pre, treatment) {
-    
+unconditional_att <- function(outcome_post, outcome_pre, treatment) {
   # Estimating the average treatment effect on the treated 
   results_post <- lm(outcome_post ~ treatment)
   results_pre  <- lm(outcome_pre ~ treatment)
@@ -165,12 +164,13 @@ basic_att <- function (outcome_post, outcome_pre, treatment) {
   
   # Saving the results in list
   results <- list()
-  results <- list(att = att, inf.func.att = inf_df)
-
+  results <- list(ATT = att, att.inf.func = inf_df)
 }
 
-results <- basic_att(Y_post, Y_pre, treat)
+results <- unconditional_att(Y_post, Y_pre, treat)
 
+results$att.inf.func
+results$att
 
 
 results$inf.func.att
