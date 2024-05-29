@@ -785,7 +785,8 @@ cond_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated +
 
 uncond_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated 
                , data = qwi, index = c("county_id", "date_y"), model = "within") 
-  
+
+
 # 2. Standard Errors of ATT(g,t) -----------------------------------------------
 
 #' Multiplier Bootstrapping is relevant for confidence intervals and
