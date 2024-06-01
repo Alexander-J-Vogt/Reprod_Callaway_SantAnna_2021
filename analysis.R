@@ -107,24 +107,24 @@ unconditional_att <- function(outcome_post, outcome_pre, treatment) {
   coef_pre  <- coef(results_pre)[2]
   att <- coef_post - coef_pre
   
-  # Estimating the influence function for each observation in order to 
-  # calculate the standard errors based on the estimates. Theoretically,
-  # estimates() allows also to extract the unconditional ATT
-  merged_estimates <- merge(results_post, results_pre)
-  merged_coef <- lava::estimate(merged_estimates, cbind(0, 1, 0, -1))
-  
-  # Extracting the estimates from the given object of estimates(). Dealing
-  # with the unsorted list and convert it to a data frame. Rearranging the 
-  # data frame in order to have the right order of initial observations given
-  # of outcome_post and outcome_pre. (Resource: lava package + explanation)
-  inf  <- lava::IC(merged_coef)
-  inf_df  <-  as.data.frame(inf)
-  rownames <- as.vector(rownames(inf))
-  rownames <- as.double(rownames)
-  inf_df <- cbind(inf_df, rownames)
-  inf_df <- arrange(inf_df, rownames)
-  colnames(inf_df) <- c("estimates", "index")
-  inf_df <- inf_df$estimates
+  # # Estimating the influence function for each observation in order to 
+  # # calculate the standard errors based on the estimates. Theoretically,
+  # # estimates() allows also to extract the unconditional ATT
+  # merged_estimates <- merge(results_post, results_pre)
+  # merged_coef <- lava::estimate(merged_estimates, cbind(0, 1, 0, -1))
+  # 
+  # # Extracting the estimates from the given object of estimates(). Dealing
+  # # with the unsorted list and convert it to a data frame. Rearranging the 
+  # # data frame in order to have the right order of initial observations given
+  # # of outcome_post and outcome_pre. (Resource: lava package + explanation)
+  # inf  <- lava::IC(merged_coef)
+  # inf_df  <-  as.data.frame(inf)
+  # rownames <- as.vector(rownames(inf))
+  # rownames <- as.double(rownames)
+  # inf_df <- cbind(inf_df, rownames)
+  # inf_df <- arrange(inf_df, rownames)
+  # colnames(inf_df) <- c("estimates", "index")
+  # inf_df <- inf_df$estimates
   
   # Saving the results in list
   results <- list()
@@ -285,11 +285,11 @@ for (g in grouplist) {
     number <- number + 1
   }
 }
-# 
+
+# Can be deleted in the end; only for test purposes
 # list <- list(att = attgt.df)
 # return(list)
 # }
-
 
 # 4. Aggregated ATT(g,t) -------------------------------------------------------
 
@@ -350,7 +350,7 @@ for (g in grouplist) {
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
   
-  if (method == "group_specific") {
+  if (method == "group_specific_att") {
     
     # Selecting the ATT(g,t) of each group in the post-treatment period in 
     # order to have the relevant ATT(g,t) for the group-time ATT(g,t)
@@ -374,30 +374,10 @@ for (g in grouplist) {
     # effect is weighted by the probability of being in group g.
     agg_gte_results <- sum(gte_results$coef * weights$probs) / sum(weights$probs)
     
-    
-    # # Recover Standard errors
-    # data_gte <- arrange(qwi, date_y, county_id)
-    # index_g2004_row <- which(data_gte$date_y == time_min & (data_gte$group == 2004 | data_gte$group == 0))
-    # index_g2004_col <- which(attgt.df$group == 2004 & attgt.df$year >= 2004)
-    # group_if <- if_matrix[index_g2004, index_g2004_col]
-    # 
-    # group_if_weighted <- group_if %*% as.vector(simple_aggte_df[index_g2004_col,"probs"])
-    # 
-    # 
-    # recover_se_from_if(if_matrix, 
-    #                      prob_df = aggte_df$probs,
-    #                      version = "group",
-    #                      index_row = index_post_2004,
-    #                      index_col = index_post)
-    # 
-    # 
-    
     # Save group-specific effects
     results <- list(partial_att = gte_results, overall_att = agg_gte_results)
     return(results)
   } # End of group-specific effects if-clause
-
-
 
 
 ## 4.3 Calendar Time Effects ---------------------------------------------------
@@ -409,14 +389,6 @@ for (g in grouplist) {
     group_min <- min(grouplist)
     aggte_ct <- attgt_probs_df[attgt.df$year >= group_min & attgt.df$year >= attgt.df$group,]
      calendar_timelist <- unique(aggte_ct$year)
-    
-    # # Calculate the calendar time effect for each period of the post-treatment period
-    # att_gt <- sapply(calendar_timelist, function(t) {
-    #                       df         <- aggte_ct[aggte_ct$year == t,]
-    #                       group_prob <- df$probs / sum(df$probs)
-    #                       attte_ct   <- sum(df$attgt * group_prob)
-    #                   }
-    #                  )
     
     # Calculating the calendar time effects for each period after the first group 
     # got treated based on the pre-selected ATT(g,t) in aggte_ct. Each ATT(g,t) 
@@ -443,6 +415,18 @@ for (g in grouplist) {
     return(results)
  } # End of calendar-time effects if-clause
 
+}
+
+est <- calculating_agg_att(data = qwi,
+                           year_input = "date_y",
+                           group_input = "group",
+                           outcome_input = "lnEmp",
+                           id_input = "county_id",
+                           treatment = treated,
+                           formula = spec_formula_log,
+                           unconditional_ind = FALSE,
+                           method = "calendar_att",
+                           balanced = 1)
 
 ## 4.4 Event Study Design -------------------------
 # Preparation of event time data in the case, the event study design is calculated
@@ -922,4 +906,4 @@ summary(out1)
 
 ggdid((out1))
 
-aggte(out1, type = "dynamic", balance_e = 1)
+aggte(out1, type = "calendar", balance_e = 1)
