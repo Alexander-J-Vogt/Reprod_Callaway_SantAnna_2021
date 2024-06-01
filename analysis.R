@@ -158,12 +158,6 @@ att.gt.ls <- list()
 # Creating an empty matrix for influence functions
 number <- 1
 n_unique <- length(unique(data_original$id))
-nr_group <- length(grouplist)
-nr_times <- length(timelist)
-if_matrix <- Matrix::Matrix(data = 0, 
-                            nrow = n_unique, 
-                            ncol = nr_group * (nr_times - 1), 
-                            sparse = TRUE)
 
 # Define whether the conditional or unconditional parallel trend assumption is
 # implemented.
@@ -199,12 +193,6 @@ for (g in grouplist) {
     # Determining the nevertreated and group of the current iteration 
     data$g_ <- ifelse(data$group == g, 1, 0) 
     data$c_ <- ifelse(data$group == 0, 1, 0)
-    
-    # Indicator for influence matrix in order to save the influence function
-    # in the right row (corresponding identifier)
-    index_data    <- data[!duplicated(data$id),] 
-    index_inffunc <- (index_data$g_ == 1) | (index_data$c_ == 1)
-    n_sample      <- length(unique(index_data$id))
     
     # Selecting the relevant group and nevertreated from the two year dataset
     index_gc <- (data$g_ == 1) | (data$c_ == 1)
@@ -560,7 +548,7 @@ est <- calculating_agg_att(data = qwi,
                              treatment = treated,
                              formula = spec_formula,
                              unconditional_ind = FALSE,
-                             method = "group_att",
+                             method = "calendar_att",
                              balanced = 1)
 
 est 
