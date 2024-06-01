@@ -21,6 +21,7 @@ library(stargazer)
 
 # load data
 qwi <- read_rds(paste0("./", "01_Data/qwi_matched.RDS"))
+dta <- read_dta(paste0("./", "01_Data/mw_data_ch2.dta"))
 qwi <- data.table(qwi)
 qwi <- qwi |> 
   relocate(group, treated, .after =county_id) |>
@@ -327,8 +328,8 @@ for (g in grouplist) {
     
     # Creating an empty data frame, in which the group-time ATT(g,t) are going to
     # be saved (COMMENT: Do we need the column SE?)
-    gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
-    colnames(gte_results) <- c("time", "coef", "se")
+    gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 2))
+    colnames(gte_results) <- c("time", "coef")
     
     # Calculating the group-time average treatment effect by taking the mean of 
     # of all ATT(g,t) of a group
@@ -363,8 +364,8 @@ for (g in grouplist) {
     # got treated based on the pre-selected ATT(g,t) in aggte_ct. Each ATT(g,t) 
     # is weighted with the probability of the being in the group when taking the
     # sum of all ATT(g,t) of a period.
-    cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 3))
-    colnames(cte_results) <- c("time", "coef", "se")
+    cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 2))
+    colnames(cte_results) <- c("time", "coef")
     
     for (i in seq_along(calendar_timelist)) {
       # Selecting the post-treatment year for which the calendar time effects will be calculated
@@ -411,6 +412,7 @@ for (g in grouplist) {
     # Calculation of the unbalanced ecent study effect
     if (method == "unbalanced_eventstudy") {
       # List of unique eventtime
+      eventime_timelist <- unique(attgt_et_bal$eventtime)
       
       et_results <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
       colnames(et_results) <- c("time", "coef")
@@ -618,45 +620,68 @@ calculate_att_se <- function(data = qwi,
                                  treatment = treated,
                                  formula = spec_formula,
                                  unconditional_ind = FALSE,
-                                 method = "simple_att",
+                                 method = "group_specific_att",
                                  balanced = 1)
-  
 
-method_opt <- c("simple_att", "group_specific", "calendar_att", "unbalanced_eventstudy", 
-                "balanced_eventstudy")
-  start_time <- Sys.time()
-for ( m in method_opt ) {
-  paste0("Method: ", m)
-  assign(paste0("cond_est_", m), calculate_att_se(data = qwi,
-                                             year_input = "date_y",
-                                             group_input = "group",
-                                             outcome_input = "lnEmp",
-                                             id_input = "county_id",
-                                             treatment = treated,
-                                             formula = spec_formula,
-                                             unconditional_ind = FALSE,
-                                             method = m,
-                                             balanced = 1))
+table(qwi$region)                
+
+qwi_west <- qwi |> filter(region == "West")
+qwi_midwest <- qwi |> filter(region == "Midwest")
+qwi_south <- qwi |> filter(region == "South")
+
+                  
+calculate_various_specific <-  function(data) {
+                
+  method_opt <- c("simple_att", "group_specific_att", "calendar_att", 
+                  "unbalanced_eventstudy", "balanced_eventstudy")
+
+  for ( m in method_opt ) {
+    paste0("Method: ", m)
+    assign(paste0("cond_est_", m), calculate_att_se(data = qwi,
+                                               year_input = "date_y",
+                                               group_input = "group",
+                                               outcome_input = "lnEmp",
+                                               id_input = "county_id",
+                                               treatment = treated,
+                                               formula = spec_formula,
+                                               unconditional_ind = FALSE,
+                                               method = m,
+                                               balanced = 1))
+    
+  }
   
-}
+  cond <- list()  
+  
   end_time <- Sys.time()
-  time.taken <- round(end_time - start_time,2)
-  
-  
-  start_time <- Sys.time()
-for ( m in method_opt ) {
-  paste0("Method: ", m)
-  assign(paste0("uncond_est_", m), calculate_att_se(data = qwi,
-                                                  year_input = "date_y",
-                                                  group_input = "group",
-                                                  outcome_input = "lnEmp",
-                                                  id_input = "county_id",
-                                                  treatment = treated,
-                                                  formula = spec_formula,
-                                                  unconditional_ind = TRUE,
-                                                  method = m,
-                                                  balanced = 1))
-  
+    time.taken <- round(end_time - start_time,2)
+    
+    
+    start_time <- Sys.time()
+  for ( m in method_opt ) {
+    paste0("Method: ", m)
+    assign(paste0("uncond_est_", m), calculate_att_se(data = qwi,
+                                                    year_input = "date_y",
+                                                    group_input = "group",
+                                                    outcome_input = "lnEmp",
+                                                    id_input = "county_id",
+                                                    treatment = treated,
+                                                    formula = spec_formula,
+                                                    unconditional_ind = TRUE,
+                                                    method = m,
+                                                    balanced = 1))
+    
+  }
+    
+   cond_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated + 
+                    lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + 
+                    leduc, data = qwi, index = c("county_id", "date_y"), model = "within") 
+    
+   uncond_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated 
+                       , data = qwi, index = c("county_id", "date_y"), model = "within")
+   
+   
+   list(cond_out = cond)
+   
 }
   end_time <- Sys.time()
   time.taken <- round(end_time - start_time,2)  
@@ -835,7 +860,7 @@ c_hat <- quantile(t_test, 1 - alpha, na.rm = TRUE)
 
 
 
-  
+mpdta
   
 params <- DIDparams(yname = "lnEmp",
                     tname = "date_y",
