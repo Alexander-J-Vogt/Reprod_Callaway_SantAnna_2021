@@ -425,17 +425,6 @@ for (g in grouplist) {
         et_results[i, "coef"]   <- sum(df$attgt * group_prob)
       }
       
-      # Calculation of the event study effect
-      # eventime_timelist <- unique(attgt_et$eventtime)
-      # att_et <- sapply(eventime_timelist, function(et) {
-      #                       df         <- attgt_et[attgt_et$eventtime == et, ]
-      #                       group_prob <- df$probs / sum(df$probs)
-      #                       attte_et   <- sum(df$attgt * group_prob)
-      #                   }
-      #                  )
-      # 
-      # et_results <- data.frame(cbind(eventime_timelist, att_et))
-      # colnames(et_results) <- c("time", "coef")
       # Calculate aggregated event study effects
       agg_et <- mean(et_results$coef)
       
