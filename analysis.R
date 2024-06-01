@@ -324,64 +324,6 @@ for (g in grouplist) {
   attgt_probs_df <- merge(attgt.df, weights, by.x = "group" )  
   index_post   <- which(attgt_probs_df$year >= attgt_probs_df$group)
   
-  # Creating index to select all ATT(g,t) in the post-treatment period. 
-#   
-#   ## Index and probability in cluster format (for group-specific ATT(g,t)) in order
-#   ## select the right county-estimates of the influence function
-#   prob_list <- data |>
-#     filter(year == time_min) |>
-#     select(id, group, year)
-#   
-#   prob_list <- prob_list |> 
-#     left_join(weights[, c("group", "probs")], by = "group", keep = NULL) |>
-#     select(-c("year"))
-#   
-#   for ( g in grouplist ) {
-#     assign(as.vector(paste0("index_post_", g)), which(prob_list$group == g | prob_list$group == 0))
-#   }
-#   
-#   ## Might not be relevant ----
-#   # Function: Selecting the right influence function estimators & calculating the SE
-#   
-#   recover_se_from_if <- function(matrix, 
-#                                  prob_df, 
-#                                  version = c("overall", "group"), 
-#                                  index_col, 
-#                                  index_row) {
-#     
-#     # Step 1: Filter relevant rows and cols
-#     org_if <- as.matrix(matrix)
-#       
-#     # Two Cases: Overall vs Group-time effects
-#     # Depending on the case the influence function is filtered for the specific 
-#     # group (rows are excluded; index_row) or only the relevant ATT(g,t) in the
-#     # post-treatment are selected (index_col)
-#     if (version == "overall") {
-#       if_mat <- org_if[, index_col]
-#     } else {
-#       if_mat <- org_if[index_row, index_post]
-#     }
-#     
-#     # Weight each column depending on prob of row
-#     group_weights <- prob_df[index_col] / sum(prob_df[index_col])
-#     
-#     # Calculate for each county a weighted influence function
-#     weighted_if <- if_mat %*% group_weights
-#     
-#     # Calculate actual standard error of the aggregated ATT
-#     var <- 1 /( nrow(weighted_if) - 1 ) * ( sum( (weighted_if - mean(weighted_if) )^2 ) )
-#     se <- sqrt(var/nrow(weighted_if))
-#     
-#     #return se 
-#     return(se)
-#   }
-# 
-# 
-# recover_se_from_if(if_matrix, 
-#                    prob_df = attgt_probs_df$probs,
-#                    version = "overall",
-#                    index_col = index_post)
-
 
 ## 4.1 Simple Weighted Average of ATT(g,t) -------------------------------------
 
@@ -400,40 +342,11 @@ for (g in grouplist) {
     # probability of being in group g. This sum is then divided by kappa.
     simple_att_est <- sum(aggte_simple$attgt * aggte_simple$probs) / kappa
     
-    ### inf.func ----
-    # Recovering the standard error for the overall ATT weighted by the relative 
-    # size of the group
-    
-    # Prepare influence function by selecting the relevant columns/ATT(g,t)
-    simple_if      <- if_matrix[, index_post]
-    # simple_weights <- aggte_simple[index_post,]
-    simple_weights <- aggte_simple$probs / sum(aggte_simple$probs)
-    # simple_weights <- simple_weights[index_post]
-    
-    # Calculate for each county a weighted influence function
-    simple_weighted_if <- simple_if %*% simple_weights
-    
-    # Calculate actual standard error of the aggregated ATT
-    var <- 1/(nrow(simple_weighted_if)-1) *(sum((simple_weighted_if - mean(as.vector(simple_weighted_if)))^2))
-    se <- sqrt(var/nrow(simple_weighted_if))
-    
     # Save partially and overall ATT (NO parial effects)
     results <- list(overall_att = simple_att_est)
     return(results)
   }
 
-}
-
-est <- calculating_agg_att(data = qwi,
-                           year_input = "date_y",
-                           group_input = "group",
-                           outcome_input = "lnEmp",
-                           id_input = "county_id",
-                           treatment = treated,
-                           formula = spec_formula,
-                           unconditional_ind = FALSE,
-                           method = "group_att",
-                           balanced = 1)
 
 ## 4.2 Group-Time ATT(g,t) -----------------------------------------------------
   
