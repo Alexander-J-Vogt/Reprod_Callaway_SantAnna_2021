@@ -491,14 +491,6 @@ for (g in grouplist) {
         }  
         
         
-      # att_et_bal <- sapply(eventime_timelist, function(et) {
-      #   df         <- attgt_et[attgt_et_bal$eventtime == et, ]
-      #   group_prob <- df$probs / sum(df$probs)
-      #   atte_et   <- sum(df$attgt * group_prob)
-      # }
-      # )
-      # 
-      # att_et_bal <- data.frame(cbind(eventime_timelist, att_et_bal))
       et_bal_results <- att_et_bal[att_et_bal$time < balance_groups + 1,]
       # colnames(et_bal_results) <- c("time", "coef")
       
