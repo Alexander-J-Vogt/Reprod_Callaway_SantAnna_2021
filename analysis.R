@@ -415,18 +415,6 @@ for (g in grouplist) {
     return(results)
  } # End of calendar-time effects if-clause
 
-}
-
-est <- calculating_agg_att(data = qwi,
-                           year_input = "date_y",
-                           group_input = "group",
-                           outcome_input = "lnEmp",
-                           id_input = "county_id",
-                           treatment = treated,
-                           formula = spec_formula_log,
-                           unconditional_ind = FALSE,
-                           method = "calendar_att",
-                           balanced = 1)
 
 ## 4.4 Event Study Design -------------------------
 # Preparation of event time data in the case, the event study design is calculated
@@ -455,17 +443,30 @@ est <- calculating_agg_att(data = qwi,
     if (method == "unbalanced_eventstudy") {
       # List of unique eventtime
       
-      # Calculation of the event study effect
-      eventime_timelist <- unique(attgt_et$eventtime)
-      att_et <- sapply(eventime_timelist, function(et) {
-                            df         <- attgt_et[attgt_et$eventtime == et, ]
-                            group_prob <- df$probs / sum(df$probs)
-                            attte_et   <- sum(df$attgt * group_prob)
-                        }
-                       )
-      
-      et_results <- data.frame(cbind(eventime_timelist, att_et))
+      et_results <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
       colnames(et_results) <- c("time", "coef")
+      
+      for (i in seq_along(eventime_timelist)) {
+        # Selecting the post-treatment year for which the calendar time effects will be calculated
+        eventime_time <- eventime_timelist[i]
+        df         <- attgt_et[attgt_et$eventtime == eventime_time,]
+        # Calcualte the 
+        group_prob <- df$probs / sum(df$probs)
+        et_results[i, "time"]   <- eventime_time
+        et_results[i, "coef"]   <- sum(df$attgt * group_prob)
+      }
+      
+      # Calculation of the event study effect
+      # eventime_timelist <- unique(attgt_et$eventtime)
+      # att_et <- sapply(eventime_timelist, function(et) {
+      #                       df         <- attgt_et[attgt_et$eventtime == et, ]
+      #                       group_prob <- df$probs / sum(df$probs)
+      #                       attte_et   <- sum(df$attgt * group_prob)
+      #                   }
+      #                  )
+      # 
+      # et_results <- data.frame(cbind(eventime_timelist, att_et))
+      # colnames(et_results) <- c("time", "coef")
       # Calculate aggregated event study effects
       agg_et <- mean(et_results$coef)
       
@@ -488,46 +489,60 @@ est <- calculating_agg_att(data = qwi,
       # -> If yes, than the ATT(g,g+t) will be balanced 
       # -> if not, the event study effect are calculated for every available event time
       
-        # Calculate the observed number of event time per group
-        att_per_group <- sapply(grouplist_et, function(g){
-          df <- attgt_et[attgt_et$group == g,]
-          n  <- nrow(df)
-          n
-        })
-        att_per_group <- data.frame(grouplist_et, att_per_group)
-        colnames(att_per_group) <- c("eventtime", "abs_nr_att")
+      # Calculate the observed number of event time per group
+      att_per_group <- sapply(grouplist_et, function(g){
+        df <- attgt_et[attgt_et$group == g,]
+        n  <- nrow(df)
+        n
+      })
+      att_per_group <- data.frame(grouplist_et, att_per_group)
+      colnames(att_per_group) <- c("eventtime", "abs_nr_att")
         
-        # Check if the observed number of event time equal or larger than
-        # balance_groups + 1
-        # groups_to_exclude inhibits all years, which are not observed longer than 
-        # "balance_groups"
-        # !!! More elegant solution
-        groups_to_exclude <- c()
-        for ( i in seq_along(att_per_group$eventtime) ) {
-          if ( att_per_group[i, 2] < balance_groups + 1 ) {
-            groups_to_exclude[i] <- att_per_group[i, 1]
-          } else {
-            next
-          }
+      # Check if the observed number of event time equal or larger than
+      # balance_groups + 1
+      # groups_to_exclude inhibits all years, which are not observed longer than 
+      # "balance_groups"
+      # !!! More elegant solution
+      groups_to_exclude <- c()
+      for ( i in seq_along(att_per_group$eventtime) ) {
+        if ( att_per_group[i, 2] < balance_groups + 1 ) {
+          groups_to_exclude[i] <- att_per_group[i, 1]
+        } else {
+          next
         }
-        groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
-        
-        # Balanced data frame
-        attgt_et_bal <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
+      }
+      groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
       
+      # Balanced data frame
+      attgt_et_bal <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
+      
+      eventime_timelist <- unique(attgt_et_bal$eventtime)
       
       # Calculation of the event study effect
-      eventime_timelist <- unique(attgt_et_bal$eventtime)
-      att_et_bal <- sapply(eventime_timelist, function(et) {
-        df         <- attgt_et[attgt_et_bal$eventtime == et, ]
+      att_et_bal <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
+      colnames(att_et_bal) <- c("time", "coef")
+        
+      for (i in seq_along(eventime_timelist)) {
+        # Selecting the post-treatment year for which the calendar time effects will be calculated
+        eventime_time <- eventime_timelist[i]
+        df         <- attgt_et[attgt_et_bal$eventtime == eventime_time,]
+        # Calcualte the 
         group_prob <- df$probs / sum(df$probs)
-        atte_et   <- sum(df$attgt * group_prob)
-      }
-      )
-      
-      att_et_bal <- data.frame(cbind(eventime_timelist, att_et_bal))
-      et_bal_results <- att_et_bal[att_et_bal$eventime_timelist < balance_groups + 1,]
-      colnames(et_bal_results) <- c("time", "coef")
+        att_et_bal[i, "time"]   <- eventime_time
+        att_et_bal[i, "coef"]   <- sum(df$attgt * group_prob)
+        }  
+        
+        
+      # att_et_bal <- sapply(eventime_timelist, function(et) {
+      #   df         <- attgt_et[attgt_et_bal$eventtime == et, ]
+      #   group_prob <- df$probs / sum(df$probs)
+      #   atte_et   <- sum(df$attgt * group_prob)
+      # }
+      # )
+      # 
+      # att_et_bal <- data.frame(cbind(eventime_timelist, att_et_bal))
+      et_bal_results <- att_et_bal[att_et_bal$time < balance_groups + 1,]
+      # colnames(et_bal_results) <- c("time", "coef")
       
       # Calculate aggregated event study effects
       agg_bal_et <- mean(et_bal_results$coef)
@@ -540,6 +555,21 @@ est <- calculating_agg_att(data = qwi,
   } # End of data-preparation if-clause
 
 } # End of calculating_agg_att
+
+
+
+
+est <- calculating_agg_att(data = qwi,
+                           year_input = "date_y",
+                           group_input = "group",
+                           outcome_input = "lnEmp",
+                           id_input = "county_id",
+                           treatment = treated,
+                           formula = spec_formula_log,
+                           unconditional_ind = FALSE,
+                           method = "unbalanced_eventstudy",
+                           balanced = 1)
+
 
 est <- calculating_agg_att(data = qwi,
                              year_input = "date_y",
@@ -906,4 +936,4 @@ summary(out1)
 
 ggdid((out1))
 
-aggte(out1, type = "calendar", balance_e = 1)
+aggte(out1, type = "dynamic", balance_e = NULL)
