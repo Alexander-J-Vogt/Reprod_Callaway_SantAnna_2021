@@ -412,7 +412,7 @@ for (g in grouplist) {
     # Calculation of the unbalanced ecent study effect
     if (method == "unbalanced_eventstudy") {
       # List of unique eventtime
-      eventime_timelist <- unique(attgt_et_bal$eventtime)
+      eventime_timelist <- unique(attgt_et$eventtime)
       
       et_results <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
       colnames(et_results) <- c("time", "coef")
