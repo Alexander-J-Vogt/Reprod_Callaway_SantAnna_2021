@@ -369,7 +369,6 @@ calculating_agg_att <- function(data,
     cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 2))
     colnames(cte_results) <- c("time", "coef")
     
-    
     # The next step, is to calculate the calendar time effects for each year
     # according to the above described strategy with a loop. Therefore, a variable 
     # calendar_timelist is calculated, which includes all unique calendar times.
@@ -402,8 +401,9 @@ calculating_agg_att <- function(data,
     # In this section the event study effects is calculated for the balanced and
     # unbalanced event time. Therefore, the interest lays on the heterogeneity of 
     # treatment effects with respect to exposure to the treatment. In order to be
-    # able to calculate to the event study
-    # effect, the event time needs to be cal
+    # able to calculate to the event study effect, the event time needs to be 
+    # calculated by taking the difference between year of the ATT(g,t) and the 
+    # group of a ATT(g,t).  
     attgt_et <- attgt_probs_df
     attgt_et$eventtime <- attgt_et$year - attgt_et$group
     
@@ -413,17 +413,28 @@ calculating_agg_att <- function(data,
 
 ### 4.4.1 Event Study Effect ---------------------------------------------------
     if (method == "unbalanced_eventstudy") {
-      # List of unique eventtime
-      eventime_timelist <- unique(attgt_et$eventtime)
       
+      # The event study effects without balancing the event time measures the
+      # effect of a treatment e periods after a treatment. Therefore, the weighted
+      # sum of all group-time ATT of a event-time e is taken and divided by the 
+      # sum of all weights of groups in event-time e. Thus, the logic of this
+      # calculation is very similar to the calculation of the calendar time effects.
+      
+      # Creating an empty dataset to safe the event study effects of each
+      # event-time e
       et_results <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
       colnames(et_results) <- c("time", "coef")
       
+      # The calculation of the event study effect requires a variable, which
+      # contains the unique set of event-time. Than, the loop can be used to 
+      # calculate the event study effects for each event-time e
+      eventime_timelist <- unique(attgt_et$eventtime)
       for (i in seq_along(eventime_timelist)) {
-        # Selecting the post-treatment year for which the calendar time effects will be calculated
+        # Selecting the event-time e of the current iteration
         eventime_time <- eventime_timelist[i]
         df         <- attgt_et[attgt_et$eventtime == eventime_time,]
-        # Calcualte the 
+        # Calculating the event study effect according to the aforementioned 
+        # description.
         group_prob <- df$probs / sum(df$probs)
         et_results[i, "time"]   <- eventime_time
         et_results[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
@@ -432,7 +443,8 @@ calculating_agg_att <- function(data,
       # Calculate aggregated event study effects
       agg_et <- round(mean(et_results$coef),4)
       
-      # Save final calendar time effects
+      # The overall event study effect is calculated by taking the mean of all
+      # event study effects time effects.
       results <- list(partial_att = et_results, overall_att = agg_et)
       return(results)
     } # End of unbalanced event-study effects if-clause
