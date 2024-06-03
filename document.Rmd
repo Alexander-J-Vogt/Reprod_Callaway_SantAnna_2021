@@ -131,14 +131,17 @@ calculating_agg_att <- function(data,
       # The ATT(g,t) is always calculated for two periods and excludes any 
       # information of periods before, after and in the middle of the two periods.
       # By excluding the other periods, it is possible to estimate the ATT(g,t)
-      # without the influence of dynamic heterogeneous effects of the period before.  
+      # without the influence of dynamic heterogeneous effects of the period before.
+      # Therefore,(A) a pre-treatment period (or reference year) needs to be determinant
+      # and (B) the data needs to include two years and only a control and treatment
+      # group.
       
-      # The choice of reference year depends on whether the period of the current 
+      # (A) The choice of reference year depends on whether the period of the current 
       # loop is laying in the pre- or post-treatment period. If the current period
       # of the loop is laying in the post-treatment period, the if-condition sets
       # the reference year equal to the first pre-treatment period of a group. Thus,
       # the treatment effects is calculated. Otherwise, the reference year is set
-      # equal to the current period of the loop iteration and a pseudo-ATT(g,t)
+      # equal to the current period of the loop iteration and a pseudo- ATT(g,t)
       # is calculated, which allows to test the PTA.
       if (t >= g) {
         reference_year <- g - 1
@@ -146,33 +149,33 @@ calculating_agg_att <- function(data,
         reference_year <- t
       }
       
-      # After having determined the reference year, the dataset can be subsetted
+      # (B) After having determined the reference year, the dataset can be subsetted
       # given the reference year and the period if the current period of the loop
       # iteration + 1. Therefore, the data includes only two time periods.
       data <- subset(data, year %in% c(reference_year, t + 1)) 
       
-      # In the next step, the two-year data sets gets further subsetted by only
+      # In the next step, the two-year data sets gets further restricted by only
       # including the "never-treated" group and the treatment group of the 
       # current loop iteration. Therefore, a index-indicator is need in order to
-      # get a data_sel, which only includes the necessary groups.
+      # get a dataset, which only includes the necessary groups.
       data$g_ <- ifelse(data$group == g, 1, 0) 
       data$c_ <- ifelse(data$group == 0, 1, 0)
       index_gc <- (data$g_ == 1) | (data$c_ == 1)
-      data_sel <- data[index_gc,]
+      # data_sel <- data[index_gc,] # can be deleted
+      # 
+      # # # Create treatment indicator and date variables as character # Can be deleted 
+      #  data_sel <- data_sel|> 
+      #    mutate(treat = ifelse(group == g, 1, 0))
       
-      #
-      n_subset <- length(unique(data_sel$id))
-      
-      # # Create treatment indicator and date variables as character # Can be deleted 
-       data_sel <- data_sel|> 
-         mutate(treat = ifelse(group == g, 1, 0))
-      
-      # If condition to check if the dataset contians excately two year.
-      # If this is not the case, than the code jumps into the next loop.
+      # This if-condition makes sure that the subsetted dataset includes exactely 
+      # two periods and jumps into the next loop if this is not the case.
       if (length(unique(data$year)) == 2) {
       
-      # Reshaping data_sel from long to wide format in order to have the outcome
-      # variable split by year. Thus, each row represents one county.
+      # The function, which calculate the conditional and unconditional ATT(g,t),
+      # need data in the wide format such that there exists a outcome variable
+      # for the pre- and post-treatment period. Thus, rows of the wide dataset 
+      # is equal to the number of unique observations. (The code follows
+      # the idea of BMisc::panel2cs2, but is a own implementation.)
       data_wide       <- arrange(data_sel, id, year)
       data_wide$.y1   <- data_wide$outcome
       data_wide$.y0   <- shift(data_wide$outcome, 1)
@@ -183,33 +186,50 @@ calculating_agg_att <- function(data,
         next
       }
 
-      # Saving the covariates as matrix for the calculation of the ATT
+      # The final step is to actually compute the conditional and unconditional ATT(g,t)
+      # for group at period t. Thereby, the user of the function can simply choose
+      # between these two option by simply setting the argument "unconditional"
+      # respectively to the preferred estimator.
+      
+      # Creating a matrix with all values of the pre-treatment covariates
       covariates <- model.matrix(covariate_formula, data_wide)
       
       if (unconditional == TRUE) {
-        
-        att <- unconditional_att(outcome_post = data_wide$.y1,
-                                 outcome_pre  = data_wide$.y0,
-                                 treatment    = data_wide$treat)
+      # The first option is to calculate the ATT(g,t) with the PTA holding unconditionally.
+      # The estimation has already been  explained in detail in the beginning of this
+      # section and is a classical canonical DiD linear regression.
+      att <- unconditional_att(outcome_post = data_wide$.y1,
+                               outcome_pre  = data_wide$.y0,
+                               treatment    = data_wide$treat)
         
       } else {
       
-        # Estimating the ATT(g,t) for the current iteration
-        att <- DRDID::drdid_panel(y1 = data_wide$.y1,
-                                  y0 = data_wide$.y0,
-                                  D  = data_wide$treat,
-                                  covariates = covariates,
-                                  inffunc    = FALSE,
-                                  boot       = FALSE)
+      # The second option is to calculate the ATT(g,t) with the PTA holding conditional
+      # to pre-treatment covariates. Thereby, the non-parametric identified doubly-robust
+      # estimator is used, which combines the outcome regression estimator (OR) of 
+      # Heckman et al. (1997) and inverse probability weighting estimator (IPW) of 
+      # Abadie (2005). The OR relies on a correctly modeled outcome evolution of 
+      # the control group conditional on covariates, while the IPW only relies on 
+      # the correctly modeled probability of belonging to group g (CS, 2021). 
+      # The doubly-robust estimators is a combination of both of the OR and IPW
+      # and thus has the advantage that it yields a correct estimator, if either
+      # the ouctome evolution or the probabilites of belonging to a group is
+      # correctly estimated.
+      att <- DRDID::drdid_panel(y1 = data_wide$.y1,
+                                y0 = data_wide$.y0,
+                                D  = data_wide$treat,
+                                covariates = covariates,
+                                inffunc    = FALSE,
+                                boot       = FALSE)
       }
       
-      # Filling the data frame with values of ATT(g,t) 
+      # The ATT(g,t) effects are saved in this data frame.
       attgt.df[number, 1] <- att$ATT 
       attgt.df[number, 2] <- g
       attgt.df[number, 3] <- t + 1
       
-      # Add to the variable +1 as this is the row/column indicator for the 
-      # ATT(g,t) data frame and influence function matrix
+      # Number is increased after every iteration by one in order to save the 
+      # values of the next iteration in the next row of the data frame.
       number <- number + 1
     }
   }
@@ -219,54 +239,73 @@ calculating_agg_att <- function(data,
 
 ## 4.0 Preparation of probabilities & vectors ----------------------------------
   
-  # Set up of copy of original dataset and relevant min and max of 
+  # Set up a copy of the original dataset as the original dataset is later needed
+  # for the event study effects.
   data <- data_original
-  time_min <- min(data$year)
-  time_max <- max(data$year)
   
-  # Calculation of the probability to belong to a treated group g.   
-  # Preparing an empty data frame, which will be filled with probability 
-  # to belong to group g.
+  # After having calculated the ATT(g,t) for each group in each period,
+  # the Agg. ATT can be calculated. Therefore, the weights for aggregating the 
+  # the different ATT(g,t) needs to be calculated and a post index is calculated,
+  # which gives gives the row of each ATT(g,t) for each group in the post-treatment
+  # period.
+  
+  # time_min <- min(data$year)
+  # time_max <- max(data$year)
+  
+  # The following loop, the probability of belonging to a treated group g are
+  # are calculated. Therefore, a empty dataset is prepared for saving the 
+  # weights in it.
   weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
   colnames(weights) <- c("group", "size", "probs")
   
-  # Calculate actual probabilities to belong to a group in a loop
   for (i in seq_along(grouplist)) {
-    
-    # select group
+    # First, the group for which the weight is calculated, is getting selected.
     g <- grouplist[i]
     
-    # calculate group size and prob. of being in the group, 
-    # i.e., group size divided by unique population size
+    # Then, the size of the subgroup g is calculated and divided by the total
+    # size of the unique oversvation in the panel dataset.
     weights[i, 1] <- g
     weights[i, 2] <- nrow(data[data$group == g & data$year == g, ])
     weights[i, 3] <- weights[i, 2] / n_unique
   }
   
-  # Merging the data frame with all ATT(g,t) with the corresponding probability
-  # to the belong to a group g
-  attgt_probs_df <- merge(attgt.df, weights, by.x = "group" )  
+  # In the last step, the probabilities of each group are getting merged 
+  # with the data frame, which contains the ATT(g,t). This dataset is playing 
+  # a key role in the following section for calculation of the Agg ATT. 
+  # This data frame is abbreviated from now on as Prob-ATTd-df.
+  attgt_probs_df <- merge(attgt.df, weights, by.x = "group" ) 
+  
+  # The index_post variable is a index for the Prob-ATT-df, which  gives the row of each ATT(g,t)
+  # for each group in the post-treatment period.
   index_post   <- which(attgt_probs_df$year >= attgt_probs_df$group)
   
 
 ## 4.1 Simple Weighted Average of ATT(g,t) -------------------------------------
-
+  
   if (method == "simple_att") {
   
-    # Selecting the ATT(g,t) of each group in the post-treatment period for further
-    # calculations. ATT(g,t) of a group before the period of treatment are dropped.
+    # The simple-weighted ATT is a measure to evaluate the overall ATE of the 
+    # treatment and might be a good first step to evaluate the treatment before 
+    # continuing with less aggregated ATE. In order to calculate the measure,
+    # all the ATT(g,t) of all groups in the post-treatment period are weighted 
+    # with the respective probability of belonging to the group g. Then  all these 
+    # weighted ATT(g,t) are summed up and divided by kappa. Kappa has the purpose
+    # to normalize the weights and is the sum of all used probabilities over all 
+    # time periods and groups. E.g., group 2006 contributes two ATT(g,t) to the 
+    # simple-weighted ATT, if the sample goes until 2007. Thus, the weight of group
+    # 2006 enters kappa two times.
+    
+    # This line selects the relevant ATT(g,t) in the post-treatment period.
     aggte_simple <- attgt_probs_df[index_post, ]
     
-    # Calculating the sum of probabilities corresponding to ATT(g,t) in the
-    # post-treatment period over all groups.
+    # Than the  sum of probabilities corresponding to ATT(g,t) in the
+    # post-treatment period over all groups is calculated.
     kappa <- sum(aggte_simple$probs)
     
-    # Simple Weighted Average of group-time average treatment effects:
-    # Taking the sum over all ATT(g,t) and multiplying by the corresponding 
-    # probability of being in group g. This sum is then divided by kappa.
+    # The simple-weighted ATT is calculated according to the above description.
     simple_att_est <- round(sum(aggte_simple$attgt * aggte_simple$probs) / kappa, 4)
     
-    # Save partially and overall ATT (NO parial effects)
+    # Save the overall ATT (NO parial effects)
     results <- list(overall_att = simple_att_est)
     return(results)
   }
