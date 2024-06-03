@@ -561,7 +561,9 @@ calculate_att_se <- function(data = qwi,
   for (i in 1:iter) {
   
     n_row <- length(data_for_b$id)  
-    # Bernoulli Variates according to Mammen (1993) which are iid
+    # Calculate Bernoulli Variates, which are used to select the influence 
+    # function values of each calculated ATT(g,t) f
+    # Advantage to common Bootstrapping: No re-sampling!
     kappa <- ( sqrt(5) + 1 ) / 2
     p <- kappa / sqrt(5)
     bernoulli_variates <- rbinom(n_row, 1, p) # Is this right?
