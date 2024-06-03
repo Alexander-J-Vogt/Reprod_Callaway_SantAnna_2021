@@ -263,7 +263,7 @@ calculating_agg_att <- function(data,
     g <- grouplist[i]
     
     # Then, the size of the subgroup g is calculated and divided by the total
-    # size of the unique oversvation in the panel dataset.
+    # size of the unique observations in the panel dataset.
     weights[i, 1] <- g
     weights[i, 2] <- nrow(data[data$group == g & data$year == g, ])
     weights[i, 3] <- weights[i, 2] / n_unique
@@ -272,7 +272,6 @@ calculating_agg_att <- function(data,
   # In the last step, the probabilities of each group are getting merged 
   # with the data frame, which contains the ATT(g,t). This dataset is playing 
   # a key role in the following section for calculation of the Agg ATT. 
-  # This data frame is abbreviated from now on as Prob-ATTd-df.
   attgt_probs_df <- merge(attgt.df, weights, by.x = "group" ) 
   
   # The index_post variable is a index for the Prob-ATT-df, which  gives the row of each ATT(g,t)
@@ -284,9 +283,9 @@ calculating_agg_att <- function(data,
   
   if (method == "simple_att") {
   
-    # The simple-weighted ATT is a measure to evaluate the overall ATE of the 
-    # treatment and might be a good first step to evaluate the treatment before 
-    # continuing with less aggregated ATE. In order to calculate the measure,
+    # The simple-weighted average of ATT(g,t) is a measure to evaluate the overall 
+    # ATE of the treatment and might be a good first step to evaluate the treatment 
+    # before continuing with less aggregated ATE. In order to calculate the measure,
     # all the ATT(g,t) of all groups in the post-treatment period are weighted 
     # with the respective probability of belonging to the group g. Then  all these 
     # weighted ATT(g,t) are summed up and divided by kappa. Kappa has the purpose
@@ -305,7 +304,7 @@ calculating_agg_att <- function(data,
     # The simple-weighted ATT is calculated according to the above description.
     simple_att_est <- round(sum(aggte_simple$attgt * aggte_simple$probs) / kappa, 4)
     
-    # Save the overall ATT (NO parial effects)
+    # This line saves the results.
     results <- list(overall_att = simple_att_est)
     return(results)
   }
@@ -315,29 +314,38 @@ calculating_agg_att <- function(data,
   
   if (method == "group_specific_att") {
     
-    # Selecting the ATT(g,t) of each group in the post-treatment period in 
-    # order to have the relevant ATT(g,t) for the group-time ATT(g,t)
+    # The group-specific ATE is of relevance for researchers if they want to 
+    # evaluate the heterogeneity of a policy with respect to treatment timing.
+    # Thereby, the group-specific ATE is calculated by taking the mean of all 
+    # available ATT(g,t) of a group g (Sant'Anna, 2022).
+    
+    # The first step is to select the ATT(g,t) of each group in the post-treatment 
+    # period from the data frame with all ATT(g,t) and the corresponding weights
+    # of each group.
     gte_df <- attgt_probs_df[index_post, ]
     
-    # Creating an empty data frame, in which the group-time ATT(g,t) are going to
-    # be saved (COMMENT: Do we need the column SE?)
+    # An empty data frame is created, in which the group-specific ATE are saved.
     gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 2))
     colnames(gte_results) <- c("time", "coef")
     
-    # Calculating the group-time average treatment effect by taking the mean of 
-    # of all ATT(g,t) of a group
+    # Than, the second step is to calculate the group-specific ATE by taking the 
+    # mean of all ATT(g,t) of a group g as above described. In each loop iteration,
+    # the group-specific ATE is calculated for another group. Therefore, the 
+    # grouplist variable is used, which contains all unique treatment groups.
     for (i in seq_along(grouplist)) {
       g <- grouplist[i]
       gte_results[i, "time"] <- g
       gte_results[i, "coef" ]  <- round(mean(gte_df[gte_df$group == g, "attgt"]), 4)
     }
     
-    # Calculating the overall average treatment effect of the group-time 
-    # average treatment effect. Thereby, each group-time average treatment
-    # effect is weighted by the probability of being in group g.
+    # The calculation of the overall ATE of the group-specific ATE follows the
+    # the same strategy of simple weighted average of ATT. Thus, the sum of
+    # weighted group-specific ATT is taken, while the weights are the
+    # probability of belonging to group g. Than, this sum is divided by the sum of
+    # of all group weights for normalization purposes.
     agg_gte_results <- round(sum(gte_results$coef * weights$probs) / sum(weights$probs), 4)
     
-    # Save group-specific effects
+    # This line saves the results.
     results <- list(partial_att = gte_results, overall_att = agg_gte_results)
     return(results)
   } # End of group-specific effects if-clause
