@@ -15,7 +15,7 @@ library(haven)
 library(DRDID)
 library(did)
 library(BMisc)
-library(stargazer)
+library(plm)
 
 # Please set here the working directory
 
@@ -131,135 +131,135 @@ calculating_agg_att <- function(data,
 
 #---- Start up & Define variables ----------------------------------------------
 
-# Define data within the function
-data_original <- data
-data_original <- data_original |>
-  rename(year    = !!sym(year_input),
-         group   = !!sym(group_input),
-         outcome = !!sym(outcome_input),
-         id      = !!sym(id_input)
-         )
-# data_original <- data_original |>
-#   rename(year    = date_y, #!!sym(year_input),
-#          group   = group, #!!sym(group_input),
-#          outcome = lnEmp, #!!sym(outcome_input),
-#          id      = county_id# !!sym(id_input)
-#   )
-# Determining unique time periods and groups
-timelist <- unique(data_original$year)
-grouplist <- sort(unique(data_original$group))
-grouplist <- grouplist[grouplist != 0]
-
-# Creating empty data frame and/or list for the different ATT estimators
-num_of_cases <- (length(timelist) - 1) * length(grouplist)
-attgt.df <- as.data.frame(matrix(NA, nrow = num_of_cases, ncol = 3))
-colnames(attgt.df) <- c("attgt", "group", "year")
-att.gt.ls <- list()
-
-# Creating an empty matrix for influence functions
-number <- 1
-n_unique <- length(unique(data_original$id))
-
-# Define whether the conditional or unconditional parallel trend assumption is
-# implemented.
-unconditional <- unconditional_ind
-# unconditional <- FALSE
-# Define pre-covariates
-covariate_formula <- formula
-# covariate_formula <- spec_formula
+  # Define data within the function
+  data_original <- data
+  data_original <- data_original |>
+    rename(year    = !!sym(year_input),
+           group   = !!sym(group_input),
+           outcome = !!sym(outcome_input),
+           id      = !!sym(id_input)
+           )
+  # data_original <- data_original |>
+  #   rename(year    = date_y, #!!sym(year_input),
+  #          group   = group, #!!sym(group_input),
+  #          outcome = lnEmp, #!!sym(outcome_input),
+  #          id      = county_id# !!sym(id_input)
+  #   )
+  # Determining unique time periods and groups
+  timelist <- unique(data_original$year)
+  grouplist <- sort(unique(data_original$group))
+  grouplist <- grouplist[grouplist != 0]
+  
+  # Creating empty data frame and/or list for the different ATT estimators
+  num_of_cases <- (length(timelist) - 1) * length(grouplist)
+  attgt.df <- as.data.frame(matrix(NA, nrow = num_of_cases, ncol = 3))
+  colnames(attgt.df) <- c("attgt", "group", "year")
+  att.gt.ls <- list()
+  
+  # Creating an empty matrix for influence functions
+  number <- 1
+  n_unique <- length(unique(data_original$id))
+  
+  # Define whether the conditional or unconditional parallel trend assumption is
+  # implemented.
+  unconditional <- unconditional_ind
+  # unconditional <- FALSE
+  # Define pre-covariates
+  covariate_formula <- formula
+  # covariate_formula <- spec_formula
 
 # 1. ATT(g,t) via double loop -------------------------------------------------
-
-# Loop over all groups
-for (g in grouplist) {
-
-   # Loop over all time periods within the loop over all groups
-   for (t in timelist) {
-    
-    # Defining data for every loop new for a non-manipulated dataset
-    data <- data_original
-    
-    # If the t is in post-treatment period than the reference year is the year
-    # before the group year. Otherwise the reference year is equal to t.
-    if (t >= g) {
-      reference_year <- g - 1
-    } else {
-      reference_year <- t
-    }
-    
-    # Selecting the relevant data of the reference year and t+1 for current 
-    # calculation of the ATT
-    data <- subset(data, year %in% c(reference_year, t + 1)) 
-    
-    # Determining the nevertreated and group of the current iteration 
-    data$g_ <- ifelse(data$group == g, 1, 0) 
-    data$c_ <- ifelse(data$group == 0, 1, 0)
-    
-    # Selecting the relevant group and nevertreated from the two year dataset
-    index_gc <- (data$g_ == 1) | (data$c_ == 1)
-    data_sel <- data[index_gc,]
-    n_subset <- length(unique(data_sel$id))
-    
-    # # Create treatment indicator and date variables as character # Can be deleted 
-     data_sel <- data_sel|> 
-       mutate(treat = ifelse(group == g, 1, 0))
-    
-    # If condition to check if the dataset contians excately two year.
-    # If this is not the case, than the code jumps into the next loop.
-    if (length(unique(data$year)) == 2) {
-    
-    # Reshaping data_sel from long to wide format in order to have the outcome
-    # variable split by year. Thus, each row represents one county.
-    data_wide       <- arrange(data_sel, id, year)
-    data_wide$.y1   <- data_wide$outcome
-    data_wide$.y0   <- shift(data_wide$outcome, 1)
-    data_wide$index <- ifelse(data_wide$year == reference_year, 1, 0)  
-    data_wide       <- data_wide[data_wide$index == 0,]
-    
-    } else {
-      print(paste0("[!!] End of group iteration: ", g))
-      next
-    }
-    
-    # Control output for iteration # Might get deleted 
-    print(paste0("Iteration: ", number))
-    print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
-    
-    # Saving the covariates as matrix for the calculation of the ATT
-    covariates <- model.matrix(covariate_formula, data_wide)
-    
-    if (unconditional == TRUE) {
+  
+  # Loop over all groups
+  for (g in grouplist) {
+  
+     # Loop over all time periods within the loop over all groups
+     for (t in timelist) {
       
-      att <- unconditional_att(outcome_post = data_wide$.y1,
-                               outcome_pre  = data_wide$.y0,
-                               treatment    = data_wide$treat)
+      # Defining data for every loop new for a non-manipulated dataset
+      data <- data_original
       
-    } else {
-    
-      # Estimating the ATT(g,t) for the current iteration
-      att <- DRDID::drdid_panel(y1 = data_wide$.y1,
-                                y0 = data_wide$.y0,
-                                D  = data_wide$treat,
-                                covariates = covariates,
-                                inffunc    = FALSE,
-                                boot       = FALSE)
+      # If the t is in post-treatment period than the reference year is the year
+      # before the group year. Otherwise the reference year is equal to t.
+      if (t >= g) {
+        reference_year <- g - 1
+      } else {
+        reference_year <- t
+      }
+      
+      # Selecting the relevant data of the reference year and t+1 for current 
+      # calculation of the ATT
+      data <- subset(data, year %in% c(reference_year, t + 1)) 
+      
+      # Determining the nevertreated and group of the current iteration 
+      data$g_ <- ifelse(data$group == g, 1, 0) 
+      data$c_ <- ifelse(data$group == 0, 1, 0)
+      
+      # Selecting the relevant group and nevertreated from the two year dataset
+      index_gc <- (data$g_ == 1) | (data$c_ == 1)
+      data_sel <- data[index_gc,]
+      n_subset <- length(unique(data_sel$id))
+      
+      # # Create treatment indicator and date variables as character # Can be deleted 
+       data_sel <- data_sel|> 
+         mutate(treat = ifelse(group == g, 1, 0))
+      
+      # If condition to check if the dataset contians excately two year.
+      # If this is not the case, than the code jumps into the next loop.
+      if (length(unique(data$year)) == 2) {
+      
+      # Reshaping data_sel from long to wide format in order to have the outcome
+      # variable split by year. Thus, each row represents one county.
+      data_wide       <- arrange(data_sel, id, year)
+      data_wide$.y1   <- data_wide$outcome
+      data_wide$.y0   <- shift(data_wide$outcome, 1)
+      data_wide$index <- ifelse(data_wide$year == reference_year, 1, 0)  
+      data_wide       <- data_wide[data_wide$index == 0,]
+      
+      } else {
+        # print(paste0("[!!] End of group iteration: ", g))
+        next
+      }
+      
+      # # Control output for iteration # Might get deleted 
+      # print(paste0("Iteration: ", number))
+      # print(paste0("Iteration over group ", g, " and period ", t + 1 , " with reference period ", reference_year, "."))
+      
+      # Saving the covariates as matrix for the calculation of the ATT
+      covariates <- model.matrix(covariate_formula, data_wide)
+      
+      if (unconditional == TRUE) {
+        
+        att <- unconditional_att(outcome_post = data_wide$.y1,
+                                 outcome_pre  = data_wide$.y0,
+                                 treatment    = data_wide$treat)
+        
+      } else {
+      
+        # Estimating the ATT(g,t) for the current iteration
+        att <- DRDID::drdid_panel(y1 = data_wide$.y1,
+                                  y0 = data_wide$.y0,
+                                  D  = data_wide$treat,
+                                  covariates = covariates,
+                                  inffunc    = FALSE,
+                                  boot       = FALSE)
+      }
+      
+      # Filling the data frame with values of ATT(g,t) 
+      attgt.df[number, 1] <- att$ATT 
+      attgt.df[number, 2] <- g
+      attgt.df[number, 3] <- t + 1
+      
+      # Add to the variable +1 as this is the row/column indicator for the 
+      # ATT(g,t) data frame and influence function matrix
+      number <- number + 1
     }
-    
-    # Filling the data frame with values of ATT(g,t) 
-    attgt.df[number, 1] <- att$ATT 
-    attgt.df[number, 2] <- g
-    attgt.df[number, 3] <- t + 1
-    
-    # Add to the variable +1 as this is the row/column indicator for the 
-    # ATT(g,t) data frame and influence function matrix
-    number <- number + 1
   }
-}
-
-# Can be deleted in the end; only for test purposes
-# list <- list(att = attgt.df)
-# return(list)
-# }
+  
+  # Can be deleted in the end; only for test purposes
+  # list <- list(att = attgt.df)
+  # return(list)
+  # }
 
 # 4. Aggregated ATT(g,t) -------------------------------------------------------
 
@@ -511,30 +511,30 @@ for (g in grouplist) {
 
 
 
-est <- calculating_agg_att(data = qwi,
-                           year_input = "date_y",
-                           group_input = "group",
-                           outcome_input = "lnEmp",
-                           id_input = "county_id",
-                           treatment = treated,
-                           formula = spec_formula_log,
-                           unconditional_ind = FALSE,
-                           method = "unbalanced_eventstudy",
-                           balanced = 1)
-
-
-est <- calculating_agg_att(data = qwi,
-                             year_input = "date_y",
-                             group_input = "group",
-                             outcome_input = "lnEmp",
-                             id_input = "county_id",
-                             treatment = treated,
-                             formula = spec_formula,
-                             unconditional_ind = FALSE,
-                             method = "calendar_att",
-                             balanced = 1)
-
-est 
+# est <- calculating_agg_att(data = qwi,
+#                            year_input = "date_y",
+#                            group_input = "group",
+#                            outcome_input = "lnEmp",
+#                            id_input = "county_id",
+#                            treatment = treated,
+#                            formula = spec_formula_log,
+#                            unconditional_ind = FALSE,
+#                            method = "balanced_eventstudy",
+#                            balanced = 1)
+# 
+# 
+# est <- calculating_agg_att(data = qwi,
+#                              year_input = "date_y",
+#                              group_input = "group",
+#                              outcome_input = "lnEmp",
+#                              id_input = "county_id",
+#                              treatment = treated,
+#                              formula = spec_formula,
+#                              unconditional_ind = FALSE,
+#                              method = "group_specific_att",
+#                              balanced = 1)
+# 
+# est 
   
 calculate_att_se <- function(data = qwi,
                                  year_input = "date_y",
@@ -555,6 +555,8 @@ calculate_att_se <- function(data = qwi,
   iter <- 10
   b_res_overall <- list()
   b_res_partial <- list()
+  
+  # 
   for (i in 1:iter) {
   
     n_row <- length(data_for_b$id)  
@@ -593,6 +595,7 @@ calculate_att_se <- function(data = qwi,
   b_res_overall <- unlist(b_res_overall)
   se_overall <- sd(b_res_overall)
   
+  # Extract ATT with full sample
   est <- calculating_agg_att(data = data,
                              year_input = year_input,
                              group_input = group_input,
@@ -600,7 +603,7 @@ calculate_att_se <- function(data = qwi,
                              id_input = id_input,
                              treatment = treated,
                              formula = spec_formula,
-                             unconditional_ind = FALSE,
+                             unconditional_ind = unconditional_ind,
                              method = method,
                              balanced = balanced)
   
@@ -612,77 +615,118 @@ calculate_att_se <- function(data = qwi,
   return(est)
 }
   
-                calculate_att_se(data = qwi,
-                                 year_input = "date_y",
-                                 group_input = "group",
-                                 outcome_input = "lnEmp",
-                                 id_input = "county_id",
-                                 treatment = treated,
-                                 formula = spec_formula,
-                                 unconditional_ind = FALSE,
-                                 method = "group_specific_att",
-                                 balanced = 1)
-
-table(qwi$region)                
+#           test <- calculate_att_se(data = qwi_west,
+#                                  year_input = "date_y",
+#                                  group_input = "group",
+#                                  outcome_input = "lnEmp",
+#                                  id_input = "county_id",
+#                                  treatment = treated,
+#                                  formula = spec_formula_log,
+#                                  unconditional_ind = FALSE,
+#                                  method = "calendar_att",
+#                                  balanced = 1)
+# 
+# calculating_agg_att()     
 
 qwi_west <- qwi |> filter(region == "West")
 qwi_midwest <- qwi |> filter(region == "Midwest")
 qwi_south <- qwi |> filter(region == "South")
 
                   
-calculate_various_specific <-  function(data) {
+calculate_various_specifications <-  function(data) {
                 
   method_opt <- c("simple_att", "group_specific_att", "calendar_att", 
                   "unbalanced_eventstudy", "balanced_eventstudy")
 
   for ( m in method_opt ) {
     paste0("Method: ", m)
-    assign(paste0("cond_est_", m), calculate_att_se(data = qwi,
+    assign(paste0("c_est_", m), calculate_att_se(data = data,
                                                year_input = "date_y",
                                                group_input = "group",
                                                outcome_input = "lnEmp",
                                                id_input = "county_id",
                                                treatment = treated,
-                                               formula = spec_formula,
+                                               formula = spec_formula_log,
                                                unconditional_ind = FALSE,
                                                method = m,
                                                balanced = 1))
     
   }
-  
-  cond <- list()  
-  
-  end_time <- Sys.time()
-    time.taken <- round(end_time - start_time,2)
-    
-    
-    start_time <- Sys.time()
+
   for ( m in method_opt ) {
     paste0("Method: ", m)
-    assign(paste0("uncond_est_", m), calculate_att_se(data = qwi,
+    assign(paste0("u_est_", m), calculate_att_se(data = data,
                                                     year_input = "date_y",
                                                     group_input = "group",
                                                     outcome_input = "lnEmp",
                                                     id_input = "county_id",
                                                     treatment = treated,
-                                                    formula = spec_formula,
+                                                    formula = spec_formula_log,
                                                     unconditional_ind = TRUE,
                                                     method = m,
                                                     balanced = 1))
     
   }
     
-   cond_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated + 
+   c_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated + 
                     lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + 
-                    leduc, data = qwi, index = c("county_id", "date_y"), model = "within") 
+                    leduc, data = data, index = c("county_id", "date_y"), model = "within") 
+   
+   c_twfe_df <- as.data.frame(matrix(NA, nrow = 1, ncol = 2))
+   colnames(c_twfe_df) <- c("coef", "se")
+   c_twfe_df[1,1] <- coef(c_twfe)[2]
+   c_twfe_df[1,2] <- lmtest::coeftest(c_twfe, vcov = vcovHC)[2,2]
+   
     
-   uncond_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated 
-                       , data = qwi, index = c("county_id", "date_y"), model = "within")
+   u_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated 
+                       , data = data, index = c("county_id", "date_y"), model = "within")
    
+   u_twfe_df <- as.data.frame(matrix(NA, nrow = 1, ncol = 2))
+   colnames(u_twfe_df) <- c("coef", "se")
+   u_twfe_df[1,1] <- coef(u_twfe)[2]
+   u_twfe_df[1,2] <- lmtest::coeftest(u_twfe, vcov = vcovHC)[2,2]
+
    
-   list(cond_out = cond)
+   cond <- list(twfe = c_twfe_df, 
+                simple = c_est_simple_att, 
+                group = c_est_group_specific_att,
+                calendar = c_est_calendar_att, 
+                eventstudy_bal = c_est_balanced_eventstudy,
+                eventstudy_unbal = c_est_unbalanced_eventstudy)
+   
+   uncond <- list(twfe = c_twfe_df, 
+                  simple = u_est_simple_att, 
+                  group = u_est_group_specific_att,
+                  calendar = u_est_calendar_att, 
+                  eventstudy_bal = u_est_balanced_eventstudy,
+                  eventstudy_unbal = u_est_unbalanced_eventstudy) 
+   
+   results <- list(c_results = cond,
+                   u_results = uncond)
    
 }
+
+start_time <- Sys.time()
+results_total   <- calculate_various_specifications(qwi)
+results_west    <- calculate_various_specifications(qwi_west)
+results_midwest <- calculate_various_specifications(qwi_midwest)
+results_south   <- calculate_various_specifications(qwi_south)
+
+df <- lapply(results_total$cond_results, function(x) as.data.frame(x, stringsAsFactors = FALSE))
+
+lapply(results_west, as.data.frame)
+
+results_west$cond_results$simple
+
+library(gridExtra)
+library(grid)
+
+
+
+end_time <- Sys.time()
+time.taken <- round(end_time - start_time,2)
+
+
   end_time <- Sys.time()
   time.taken <- round(end_time - start_time,2)  
 
@@ -911,4 +955,4 @@ summary(out1)
 
 ggdid((out1))
 
-aggte(out1, type = "dynamic", balance_e = NULL)
+aggte(out1, type = "group", balance_e = NULL)
