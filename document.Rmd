@@ -452,34 +452,42 @@ calculating_agg_att <- function(data,
 ## 4.4.2 Eventstudy with balanced group ---------------------------------------
     if (method == "balanced_eventstudy" & !is.null(balance_groups)) {
       
-      # Indicator on how many periods a group should have experienced a treatment 
-      # NULL if balance group is not asked for
+      # The event study effect with groups being balanced with respect to the
+      # event-time e condition the event study effect on a group being observed
+      # at least for a certain amount of time according to CS (2021). Thereby,
+      # the calculation of the "balanced event study effect" is identical to the 
+      # "unbalanced event study effect". Thus, this is not explained in detail
+      # anymore, but the steps in order to get the "balanced" data.
       
-      # The paramter tells the code that only groups are included in the 
-      # Than the balancing parameter is re-defined as this is given to the function.
+      # First, the indicator on how many periods a group should have been 
+      # observed is re-defined as it is an argument, which the user needs to 
+      # give the function.
       balance_groups <- balanced
-      # List of unique eventtime
+      
+      # Secondly, it must be identified, which group experienced the stated
+      # amount of period defined by the variable "balance_groups".
+      # List of unique event-time.
+      
+      # Therefore, the number of post-treatment periods is calculated by iterating
+      # over the vector with the unique treatment groups.
       grouplist_et <- unique(attgt_et$group)
-      
-      # Check if event study design is to be calculated with balanced groups or not
-      # aka how many periods should a group have been experiencing a treatment/policy
-      # -> If yes, than the ATT(g,g+t) will be balanced 
-      # -> if not, the event study effect are calculated for every available event time
-      
-      # Calculate the observed number of event time per group
       att_per_group <- sapply(grouplist_et, function(g){
+        # Create a subset of the ATT(g,t) with only group g being represented.
         df <- attgt_et[attgt_et$group == g,]
+        # Than sum up the number of post-treatment period
         n  <- nrow(df)
         n
       })
+      
+      # Create a data frame, which contains the information on the number
+      # of post-treatment periods.
       att_per_group <- data.frame(grouplist_et, att_per_group)
       colnames(att_per_group) <- c("eventtime", "abs_nr_att")
-        
-      # Check if the observed number of event time equal or larger than
-      # balance_groups + 1
-      # groups_to_exclude inhibits all years, which are not observed longer than 
-      # "balance_groups"
-      # !!! More elegant solution
+
+      # Than, the if-condition in the loop determines whether a group was 
+      # exposed to the treatment for the required length of "balanced_group".
+      # In the end, groups_to_exclude contains the groups, which were not observed
+      # for required treatment length.
       groups_to_exclude <- c()
       for ( i in seq_along(att_per_group$eventtime) ) {
         if ( att_per_group[i, 2] < balance_groups + 1 ) {
@@ -488,14 +496,15 @@ calculating_agg_att <- function(data,
           next
         }
       }
-      groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
       
-      # Balanced data frame
+      # In the last step to get the "balanced" data frame with the ATT(g,t). 
+      # The groups determined above are excluded.
+      groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
       attgt_et_bal <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
       
+      # Now, the event study effect can be calclated in the same way as the 
+      # in the Unbalanced event study effect section.
       eventime_timelist <- unique(attgt_et_bal$eventtime)
-      
-      # Calculation of the event study effect
       att_et_bal <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
       colnames(att_et_bal) <- c("time", "coef")
         
@@ -508,15 +517,16 @@ calculating_agg_att <- function(data,
         att_et_bal[i, "time"]   <- eventime_time
         att_et_bal[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
         }  
-        
-        
-      et_bal_results <- att_et_bal[att_et_bal$time < balance_groups + 1,]
-      # colnames(et_bal_results) <- c("time", "coef")
       
-      # Calculate aggregated event study effects
+      # Only event study effects are shown, which lay in the minimum requirement
+      # of how long a group must have been observed.
+      et_bal_results <- att_et_bal[att_et_bal$time < balance_groups + 1,]
+      
+      # Calculate the aggregated event study effects by taking the mean of all
+      # event study effects in the different event-time.
       agg_bal_et <- round(mean(et_bal_results$coef), 4)
       
-      # Save final calendar time effects
+      # Save results on balanced event study effects
       results <- list(partial_att = et_bal_results, overall_att = agg_bal_et)
       return(results)
     } # End of balanced event study effects if-clause
