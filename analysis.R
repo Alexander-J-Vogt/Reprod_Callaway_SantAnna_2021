@@ -133,19 +133,19 @@ calculating_agg_att <- function(data,
 #---- Start up & Define variables ----------------------------------------------
 
   # Define data within the function
-  data_original <- data
-  data_original <- data_original |>
-    rename(year    = !!sym(year_input),
-           group   = !!sym(group_input),
-           outcome = !!sym(outcome_input),
-           id      = !!sym(id_input)
-           )
+  data_original <- qwi
   # data_original <- data_original |>
-  #   rename(year    = date_y, #!!sym(year_input),
-  #          group   = group, #!!sym(group_input),
-  #          outcome = lnEmp, #!!sym(outcome_input),
-  #          id      = county_id# !!sym(id_input)
-  #   )
+  #   rename(year    = !!sym(year_input),
+  #          group   = !!sym(group_input),
+  #          outcome = !!sym(outcome_input),
+  #          id      = !!sym(id_input)
+  #          )
+  data_original <- data_original |>
+    rename(year    = date_y, #!!sym(year_input),
+           group   = group, #!!sym(group_input),
+           outcome = lnEmp, #!!sym(outcome_input),
+           id      = county_id# !!sym(id_input)
+    )
   # Determining unique time periods and groups
   timelist <- unique(data_original$year)
   grouplist <- sort(unique(data_original$group))
@@ -163,11 +163,11 @@ calculating_agg_att <- function(data,
   
   # Define whether the conditional or unconditional parallel trend assumption is
   # implemented.
-  unconditional <- unconditional_ind
-  # unconditional <- FALSE
+  # unconditional <- unconditional_ind
+  unconditional <- FALSE
   # Define pre-covariates
-  covariate_formula <- formula
-  # covariate_formula <- spec_formula
+  # covariate_formula <- formula
+  covariate_formula <- spec_formula
 
 # 1. ATT(g,t) via double loop -------------------------------------------------
   
@@ -359,7 +359,8 @@ calculating_agg_att <- function(data,
     # in order to calculate heterogenous treatment effects w.r.t. to calendar time
     group_min <- min(grouplist)
     aggte_ct <- attgt_probs_df[attgt.df$year >= group_min & attgt.df$year >= attgt.df$group,]
-     calendar_timelist <- unique(aggte_ct$year)
+    test <- attgt_probs_df[index_post, ]
+    calendar_timelist <- unique(aggte_ct$year)
     
     # Calculating the calendar time effects for each period after the first group 
     # got treated based on the pre-selected ATT(g,t) in aggte_ct. Each ATT(g,t) 
