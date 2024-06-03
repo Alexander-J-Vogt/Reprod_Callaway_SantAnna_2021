@@ -350,35 +350,43 @@ calculating_agg_att <- function(data,
     return(results)
   } # End of group-specific effects if-clause
 
-
-## 4.3 Calendar Time Effects ---------------------------------------------------
-# Gets activated if method is equal to calendar_att
-  if (method == "calendar_att") {
   
-    # Select for each group the ATT(g,t)-effects of the post-treatment period for
-    # in order to calculate heterogenous treatment effects w.r.t. to calendar time
-    group_min <- min(grouplist)
-    aggte_ct <- attgt_probs_df[attgt.df$year >= group_min & attgt.df$year >= attgt.df$group,]
-    calendar_timelist <- unique(aggte_ct$year)
+## 4.3 Calendar Time Effects ---------------------------------------------------
+  if (method == "calendar_att") {
     
-    # Calculating the calendar time effects for each period after the first group 
-    # got treated based on the pre-selected ATT(g,t) in aggte_ct. Each ATT(g,t) 
-    # is weighted with the probability of the being in the group when taking the
-    # sum of all ATT(g,t) of a period.
+    # Calendar time effects are interesting if the question arises on how large the 
+    # average treatment effects after a certain number of periods is (CS, 2021). 
+    # For example, researchers could be interested in the effects of policy several 
+    # years after its first introduction. 
+    # The calendar time effects are calculated by taking the sum of ATT(g,t) with 
+    # the corresponding weights by calendar time, e.g., by year t. The first year 
+    # for which the calendar time effect is calculated, is the year in which a
+    # treated group is treated the first time.
+    
+    # First, select all the ATT(g,t) in the post-treatment period.
+    # group_min <- min(grouplist)
+    aggte_ct <- attgt_probs_df[index_post,] # If mistake change back to org code attgt.df$year >= group_min & attgt.df$year >= attgt.df$group,]
     cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 2))
     colnames(cte_results) <- c("time", "coef")
     
+    
+    # The next step, is to calculate the calendar time effects for each year
+    # according to the above described strategy with a loop. Therefore, a variable 
+    # calendar_timelist is calculated, which includes all unique calendar times.
+    calendar_timelist <- unique(aggte_ct$year)
     for (i in seq_along(calendar_timelist)) {
-      # Selecting the post-treatment year for which the calendar time effects will be calculated
+      # Selecting the post-treatment year for which the calendar time effects 
+      # will be calculated in the current iteration.
       calendar_time <- calendar_timelist[i]
-      df         <- aggte_ct[aggte_ct$year == calendar_time,]
-      # Calcualte the 
+      df <- aggte_ct[aggte_ct$year == calendar_time,]
+      # Calculating the actual calendar time effects.
       group_prob <- df$probs / sum(df$probs)
       cte_results[i, "time"] <- calendar_time
       cte_results[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
     }
     
-    # Calculate the aggregated calendar time effect over all different calendar time effects
+    # The overall calendar time effects is calculated by taking the mean of all
+    # calendar time effects. 
     agg_att_ct <- round(mean(cte_results$coef), 4)
     
     # Save final calendar time effects
