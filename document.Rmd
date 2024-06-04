@@ -645,7 +645,7 @@ calculate_att_se <- function(data = qwi,
   
 ```
 
-```{r}
+```{r include=FALSE}
 calculate_various_specifications <-  function(data) {
                 
   method_opt <- c("simple_att", "group_specific_att", "calendar_att", 
@@ -796,7 +796,11 @@ calculate_various_specifications_west <-function(data) {
 
 Callaway & Sant'Anna (2021) explore the effect of an increase in the minimum wage on teen employment in the United States. In the period between 2001 and 2007, several states increased their minimum wage above the federal minimum wage in different years, while the federal minimum wage stayed constant. This allows CS (2021) to exploit the variation on state-level with respect to minimum wage increases and enables them to calculate ATE. The groups are defined according to the year of the minimum wage increase and all states without any increase are belonging to the "never-treated" group.
 
-In this term paper, the same application of CS (2021) is performed with the implementation presented above. Thereby, the dataset used by CS (2021) is recreated by using the information on teen employment from the public available Quarterly Workforce Indicator (QWI) on county-level and information on the pre-treatment characteristics of counties in the U.S. from the 2000 County and City Databook. The last dataset allows to control for several county-specific characteristics such as county population in 2000, fraction of the white population, share of the population with high-school diploma, the median income in 1997 and share of population below the poverty level. These are the exact same characteristics use by CS (2021) and are logarithmized for the condi
+In this term paper, the same application of CS (2021) is performed with the implementation presented above. Thereby, the dataset used by CS (2021) is recreated by using the information on teen employment from the public available Quarterly Workforce Indicator (QWI) on county-level and information on the pre-treatment characteristics of counties in the U.S. from the 2000 County and City Databook. The last dataset allows to control for several county-specific characteristics such as county population in 2000, fraction of the white population, share of the population with high-school diploma, the median income in 1997 and share of population below the poverty level. These  values are than used in their logarithmized-version for controlling the county-specific trends and, thus, allow to implement the conditional PTA like in CS (2021). Moreover, it is important to mention that the full sample used in this term paper contain 2260 counties, while the dataset of CS (2021) has 2284. Thus, in terms of sample size both dataset are close to each other.
+
+The evaluation of the effect of the minimum wage increase on teen employment is done on the full sample as in CS (2021), which contains all three different treated groups, i.e., group 2004, group 2006 and group 2007. The research is also extended to evaluate the effect on regional-level according to the Census Region defined by the U.S. Census Bureau. The following regions are observed: the Western, Southern and Midwest region. Thereby, all three groups have a different number treatment groups. While the Midwestern region has all three groups, the southern region only contain group 2006 and 2007 and the Western group has only the group 2007. 
+
+In the following the results are discussed after the table structure is explained. In "twfe", the TWFE estimator is saved the standard error and in "simple", the simple-weighted average over all ATT(g,t) can befound with the bootstraped standard error. In "group"
 
 ```{r warning=FALSE, include=FALSE}
 
@@ -815,7 +819,7 @@ results_midwest <- calculate_various_specifications(qwi_midwest)
 results_south   <- calculate_various_specifications(qwi_south)
 ```
 
-```{r echo=FALSE, paged.print=TRUE}
+```{r paged.print=TRUE}
 print("(1) Full sample: Conditional ATE with Doubly-Robust estimators")
 print(results_total$c_results)
 
