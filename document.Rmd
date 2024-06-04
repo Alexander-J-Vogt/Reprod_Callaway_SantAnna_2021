@@ -645,8 +645,6 @@ calculate_att_se <- function(data = qwi,
   
 ```
 
-
-
 ```{r}
 calculate_various_specifications <-  function(data) {
                 
@@ -796,7 +794,10 @@ calculate_various_specifications_west <-function(data) {
 
 # 5. Application of Callaway & Sant'Anna (2021)
 
-Callaway & Sant'Anna (2021) show as an example of their methodology for calculating aggregated average treatment effects the   
+Callaway & Sant'Anna (2021) explore the effect of an increase in the minimum wage on teen employment in the United States. In the period between 2001 and 2007, several states increased their minimum wage above the federal minimum wage in different years, while the federal minimum wage stayed constant. This allows CS (2021) to exploit the variation on state-level with respect to minimum wage increases and enables them to calculate ATE. The groups are defined according to the year of the minimum wage increase and all states without any increase are belonging to the "never-treated" group.
+
+In this term paper, the same application of CS (2021) is performed with the implementation presented above. Thereby, the dataset used by CS (2021) is recreated by using the information on teen employment from the public available Quarterly Workforce Indicator (QWI) on county-level and information on the pre-treatment characteristics of counties in the U.S. from the 2000 County and City Databook. The last dataset allows to control for several county-specific characteristics such as county population in 2000, fraction of the white population, share of the population with high-school diploma, the median income in 1997 and share of population below the poverty level. These are the exact same characteristics use by CS (2021) and are logarithmized for the condi
+
 ```{r warning=FALSE, include=FALSE}
 
 # In these lines, the subset of each Census Region is created.
@@ -814,16 +815,16 @@ results_midwest <- calculate_various_specifications(qwi_midwest)
 results_south   <- calculate_various_specifications(qwi_south)
 ```
 
-```{r echo=FALSE}
+```{r echo=FALSE, paged.print=TRUE}
 print("(1) Full sample: Conditional ATE with Doubly-Robust estimators")
 print(results_total$c_results)
 
 ```
+
 ```{r}
 print("(2) Full sample: Unconditional ATE")
 print(results_total$u_results)
 ```
-
 
 ```{r}
 print("(3) Western Census Region: Conditional ATE")
@@ -834,7 +835,6 @@ print(results_west$c_results)
 print("(4) Western Census Region: Unconditional ATE")
 print(results_west$c_results)
 ```
-
 
 ```{r}
 print("(5) Midwest Census Region: Conditional ATE")
@@ -855,6 +855,3 @@ print(results_south$c_results)
 print("(8) Southern Census Region: Unconditional ATE")
 print(results_$c_results)
 ```
-
-
-
