@@ -32,11 +32,12 @@ library(DRDID)
 library(did)
 library(BMisc)
 library(plm)
+library(lmtest)
 
 # Please set here the working directory
 
 # load data
-qwi <- read_rds(paste0("./", "cs_data.RDS"))
+qwi <- read_rds(paste0("./", "01_Data/cs_data.RDS"))
 qwi <- data.table(qwi)
   
 ```
@@ -98,6 +99,14 @@ calculating_agg_att <- function(data,
   unconditional <- unconditional_ind
   covariate_formula <- formula
   
+  # data_original <- data_original |>
+  #   rename(year    = date_y, #!!sym(year_input),
+  #          group   = group, #!!sym(group_input),
+  #          outcome = lnEmp, #!!sym(outcome_input),
+  #          id      = county_id# !!sym(id_input)
+  #   )
+  #   unconditional <- FALSE
+  #   covariate_formula <- ~ -1 + lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + leduc
   # Determining the unique time periods, groups and the number of unique values 
   # of the id-variable . Thereby, the timelist is a tx1 vector and grouplist 
   # a gx1 vector.
@@ -161,11 +170,11 @@ calculating_agg_att <- function(data,
       data$g_ <- ifelse(data$group == g, 1, 0) 
       data$c_ <- ifelse(data$group == 0, 1, 0)
       index_gc <- (data$g_ == 1) | (data$c_ == 1)
-      # data_sel <- data[index_gc,] # can be deleted
-      # 
-      # # # Create treatment indicator and date variables as character # Can be deleted 
-      #  data_sel <- data_sel|> 
-      #    mutate(treat = ifelse(group == g, 1, 0))
+      data_sel <- data[index_gc,] # can be deleted
+
+      # # Create treatment indicator and date variables as character # Can be deleted
+      data_sel <- data_sel|>
+         mutate(treat = ifelse(group == g, 1, 0))
       
       # This if-condition makes sure that the subsetted dataset includes exactely 
       # two periods and jumps into the next loop if this is not the case.
@@ -363,16 +372,22 @@ calculating_agg_att <- function(data,
     # for which the calendar time effect is calculated, is the year in which a
     # treated group is treated the first time.
     
-    # First, select all the ATT(g,t) in the post-treatment period.
+    # In order to calculate the calendar time effects for each year, the loop for 
+    # calculating the effects needs iterate over all calendar times. 
+    
+    # Than, an empty data frame is created, in which the calendar time effects are 
+    # going to be save.
     # group_min <- min(grouplist)
     aggte_ct <- attgt_probs_df[index_post,] # If mistake change back to org code attgt.df$year >= group_min & attgt.df$year >= attgt.df$group,]
+    #Therefore, 
+    # The variable calendar_timelist is determined with all unique 
+    # calendar times, which is needed in order to calculate the calendar time effects
+    
+    calendar_timelist <- unique(aggte_ct$year)
+    
     cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 2))
     colnames(cte_results) <- c("time", "coef")
-    
-    # The next step, is to calculate the calendar time effects for each year
-    # according to the above described strategy with a loop. Therefore, a variable 
-    # calendar_timelist is calculated, which includes all unique calendar times.
-    calendar_timelist <- unique(aggte_ct$year)
+    # In this loop the calendar effects for each calendar time are calculated.
     for (i in seq_along(calendar_timelist)) {
       # Selecting the post-treatment year for which the calendar time effects 
       # will be calculated in the current iteration.
@@ -420,15 +435,15 @@ calculating_agg_att <- function(data,
       # sum of all weights of groups in event-time e. Thus, the logic of this
       # calculation is very similar to the calculation of the calendar time effects.
       
-      # Creating an empty dataset to safe the event study effects of each
-      # event-time e
-      et_results <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
-      colnames(et_results) <- c("time", "coef")
-      
       # The calculation of the event study effect requires a variable, which
       # contains the unique set of event-time. Than, the loop can be used to 
       # calculate the event study effects for each event-time e
+      # Creating an empty dataset to safe the event study effects of each
+      # event-time e
       eventime_timelist <- unique(attgt_et$eventtime)
+      et_results <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
+      colnames(et_results) <- c("time", "coef")
+      
       for (i in seq_along(eventime_timelist)) {
         # Selecting the event-time e of the current iteration
         eventime_time <- eventime_timelist[i]
@@ -450,7 +465,7 @@ calculating_agg_att <- function(data,
     } # End of unbalanced event-study effects if-clause
 
 ## 4.4.2 Eventstudy with balanced group ---------------------------------------
-    if (method == "balanced_eventstudy" & !is.null(balance_groups)) {
+    if (method == "balanced_eventstudy" & !is.null(balanced)) {
       
       # The event study effect with groups being balanced with respect to the
       # event-time e condition the event study effect on a group being observed
@@ -605,7 +620,7 @@ calculate_att_se <- function(data = qwi,
   b_res_partial <- map_dfr(b_res_partial, as.data.frame)
   se_partial <- apply(b_res_partial, 2, sd)
   b_res_overall <- unlist(b_res_overall)
-  se_overall <- sd(b_res_overall)
+  se_overall <- round(sd(b_res_overall), 4)
   
   # Calculating the ATT with the full sample.
   est <- calculating_agg_att(data = data,
@@ -630,13 +645,9 @@ calculate_att_se <- function(data = qwi,
   
 ```
 
+
+
 ```{r}
-
-qwi_west <- qwi |> filter(region == "West")
-qwi_midwest <- qwi |> filter(region == "Midwest")
-qwi_south <- qwi |> filter(region == "South")
-
-                  
 calculate_various_specifications <-  function(data) {
                 
   method_opt <- c("simple_att", "group_specific_att", "calendar_att", 
@@ -650,7 +661,7 @@ calculate_various_specifications <-  function(data) {
                                                outcome_input = "lnEmp",
                                                id_input = "county_id",
                                                treatment = treated,
-                                               formula = spec_formula_log,
+                                               formula = spec_formula,
                                                unconditional_ind = FALSE,
                                                method = m,
                                                balanced = 1))
@@ -665,7 +676,7 @@ calculate_various_specifications <-  function(data) {
                                                     outcome_input = "lnEmp",
                                                     id_input = "county_id",
                                                     treatment = treated,
-                                                    formula = spec_formula_log,
+                                                    formula = spec_formula,
                                                     unconditional_ind = TRUE,
                                                     method = m,
                                                     balanced = 1))
@@ -678,8 +689,8 @@ calculate_various_specifications <-  function(data) {
    
    c_twfe_df <- as.data.frame(matrix(NA, nrow = 1, ncol = 2))
    colnames(c_twfe_df) <- c("coef", "se")
-   c_twfe_df[1,1] <- coef(c_twfe)[2]
-   c_twfe_df[1,2] <- lmtest::coeftest(c_twfe, vcov = vcovHC)[2,2]
+   c_twfe_df[1,1] <- round(coef(c_twfe)[2], 4)
+   c_twfe_df[1,2] <- round(lmtest::coeftest(c_twfe, vcov = vcovHC)[2,2], 4)
    
     
    u_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated 
@@ -687,8 +698,8 @@ calculate_various_specifications <-  function(data) {
    
    u_twfe_df <- as.data.frame(matrix(NA, nrow = 1, ncol = 2))
    colnames(u_twfe_df) <- c("coef", "se")
-   u_twfe_df[1,1] <- coef(u_twfe)[2]
-   u_twfe_df[1,2] <- lmtest::coeftest(u_twfe, vcov = vcovHC)[2,2]
+   u_twfe_df[1,1] <- round(coef(u_twfe)[2], 4)
+   u_twfe_df[1,2] <- round(lmtest::coeftest(u_twfe, vcov = vcovHC)[2,2], 4)
 
    
    cond <- list(twfe = c_twfe_df, 
@@ -709,18 +720,141 @@ calculate_various_specifications <-  function(data) {
                    u_results = uncond)
    
 }
+
+## Calculating all methods except balanced eventstudy
+calculate_various_specifications_west <-function(data) {
+  
+  method_opt <- c("simple_att", "group_specific_att", "calendar_att", 
+                  "unbalanced_eventstudy")
+  
+  for ( m in method_opt ) {
+    paste0("Method: ", m)
+    assign(paste0("c_est_", m), calculate_att_se(data = data,
+                                                 year_input = "date_y",
+                                                 group_input = "group",
+                                                 outcome_input = "lnEmp",
+                                                 id_input = "county_id",
+                                                 treatment = treated,
+                                                 formula = spec_formula,
+                                                 unconditional_ind = FALSE,
+                                                 method = m,
+                                                 balanced = 1))
+    
+  }
+  
+  for ( m in method_opt ) {
+    paste0("Method: ", m)
+    assign(paste0("u_est_", m), calculate_att_se(data = data,
+                                                 year_input = "date_y",
+                                                 group_input = "group",
+                                                 outcome_input = "lnEmp",
+                                                 id_input = "county_id",
+                                                 treatment = treated,
+                                                 formula = spec_formula,
+                                                 unconditional_ind = TRUE,
+                                                 method = m,
+                                                 balanced = 1))
+    
+  }
+  
+  c_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated + 
+                  lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + 
+                  leduc, data = data, index = c("county_id", "date_y"), model = "within") 
+  
+  c_twfe_df <- as.data.frame(matrix(NA, nrow = 1, ncol = 2))
+  colnames(c_twfe_df) <- c("coef", "se")
+  c_twfe_df[1,1] <- round(coef(c_twfe)[2], 4)
+  c_twfe_df[1,2] <- round(lmtest::coeftest(c_twfe, vcov = vcovHC)[2,2], 4)
+  
+  
+  u_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated 
+                , data = data, index = c("county_id", "date_y"), model = "within")
+  
+  u_twfe_df <- as.data.frame(matrix(NA, nrow = 1, ncol = 2))
+  colnames(u_twfe_df) <- c("coef", "se")
+  u_twfe_df[1,1] <- round(coef(u_twfe)[2], 4)
+  u_twfe_df[1,2] <- round(lmtest::coeftest(u_twfe, vcov = vcovHC)[2,2], 4)
+  
+  
+  cond <- list(twfe = c_twfe_df, 
+               simple = c_est_simple_att, 
+               group = c_est_group_specific_att,
+               calendar = c_est_calendar_att,
+               eventstudy_unbal = c_est_unbalanced_eventstudy)
+  
+  uncond <- list(twfe = c_twfe_df, 
+                 simple = u_est_simple_att, 
+                 group = u_est_group_specific_att,
+                 calendar = u_est_calendar_att,
+                 eventstudy_unbal = u_est_unbalanced_eventstudy) 
+  
+  results <- list(c_results = cond,
+                  u_results = uncond)
+  
+}
 ```
 
-```{r warning=FALSE}
+# 5. Application of Callaway & Sant'Anna (2021)
+
+Callaway & Sant'Anna (2021) show as an example of their methodology for calculating aggregated average treatment effects the   
+```{r warning=FALSE, include=FALSE}
+
+# In these lines, the subset of each Census Region is created.
+qwi_west <- qwi |> filter(region == "West")
+qwi_midwest <- qwi |> filter(region == "Midwest")
+qwi_south <- qwi |> filter(region == "South")
+
+# Defining the covariate formula for the ATE holding under conditional ATE
+spec_formula <- ~ -1 + lwhite_pop + lpoverty + lpop + lmeduab_income + leduc
+
+# Calc
 results_total   <- calculate_various_specifications(qwi)
-results_west    <- calculate_various_specifications(qwi_west)
+results_west    <- calculate_various_specifications_west(qwi_west)
 results_midwest <- calculate_various_specifications(qwi_midwest)
 results_south   <- calculate_various_specifications(qwi_south)
 ```
 
-```{r}
-print(results_south$c_results)
-
-
+```{r echo=FALSE}
+print("(1) Full sample: Conditional ATE with Doubly-Robust estimators")
+print(results_total$c_results)
 
 ```
+```{r}
+print("(2) Full sample: Unconditional ATE")
+print(results_total$u_results)
+```
+
+
+```{r}
+print("(3) Western Census Region: Conditional ATE")
+print(results_west$c_results)
+```
+
+```{r}
+print("(4) Western Census Region: Unconditional ATE")
+print(results_west$c_results)
+```
+
+
+```{r}
+print("(5) Midwest Census Region: Conditional ATE")
+print(results_midwest$c_results)
+```
+
+```{r}
+print("(6) Midwest Census Region: Unconditional ATE")
+print(results_midwest$c_results)
+```
+
+```{r}
+print("(7) Soutern Census Region: Conditional ATE")
+print(results_south$c_results)
+```
+
+```{r}
+print("(8) Southern Census Region: Unconditional ATE")
+print(results_$c_results)
+```
+
+
+
