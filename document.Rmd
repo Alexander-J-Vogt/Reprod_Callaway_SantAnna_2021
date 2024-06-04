@@ -536,44 +536,52 @@ calculating_agg_att <- function(data,
 } # End of calculating_agg_att
 ```
 
+The function `calculate_att_se` is the final step of implementing the methodology of CS (2021). The outcome of the function is the partially and overall ATE of the choosen method and the corresponding standard errors, which are calculated by using the multiplier bootstrap proposed in CS (2021). Thereby, it is important to mention that the multiplier bootstrap in CS (2021) is used to bootstrap the influence function of an ATE, while in this term paper it used to calculate a distribution of the partial and ATT from which the distribution is calculated.
+
 ```{r}
 calculate_att_se <- function(data = qwi,
-                                 year_input = "date_y",
-                                 group_input = "group",
-                                 outcome_input = "lnEmp",
-                                 id_input = "county_id",
-                                 treatment = treated,
-                                 formula = spec_formula,
-                                 unconditional_ind = FALSE,
-                                 method = "group_att",
-                                 balanced = FALSE) {
+                             year_input = "date_y",
+                             group_input = "group",
+                             outcome_input = "lnEmp",
+                             id_input = "county_id",
+                             treatment = treated,
+                             formula = spec_formula,
+                             unconditional_ind = FALSE,
+                             method = "group_att",
+                             balanced = FALSE) {
   
-  data <- qwi
+  # These variables are redefined for universal usage in the function. 
+  data <- data
   data_for_b <- data |>
     rename(id = !!sym(id_input)) |>
     as.data.frame()
   method <- method
+  # The number of iteration is determined here.
   iter <- 10
   b_res_overall <- list()
   b_res_partial <- list()
-  
-  # 
+  # This loop is the implementation of the multiplier bootstrap. The core
+  # difference to the standard bootstrapping is that there are us no resembling
+  # but only a fraction of the overall total population size is used for
+  # calculating the ATE.
   for (i in 1:iter) {
   
-    n_row <- length(data_for_b$id)  
-    # Calculate Bernoulli Variates, which are used to select the influence 
-    # function values of each calculated ATT(g,t) f
-    # Advantage to common Bootstrapping: No re-sampling!
+    # The selection of the subset of the total sample is determined by the 
+    # Bernoulli Variates according to CS (2021), Thereby, a vector with values
+    # of the binomial distribution is created. The vector has the same length
+    # as the unique observation of the dataset. The probability for which 1 are
+    # drawn from is equal to the following term:
     kappa <- ( sqrt(5) + 1 ) / 2
     p <- kappa / sqrt(5)
-    bernoulli_variates <- rbinom(n_row, 1, p) # Is this right?
+    n_row <- length(data_for_b$id)
+    # Creation of the above mentioned vector.
+    bernoulli_variates <- rbinom(n_row, 1, p)
     
-    # Select counties
+    # In these three lines the subset of the total sample is drawn, which is then
+    # used to calculate the partial and overall ATE with the method of choice.
     county <- unique(data_for_b$id)
     county <- county[bernoulli_variates == 1]
-    
     b_data <- data_for_b |> filter(id %in% county)
-     
     b_est <- calculating_agg_att(data = b_data,
                                  year_input = year_input,
                                  group_input = group_input,
@@ -585,20 +593,21 @@ calculate_att_se <- function(data = qwi,
                                  method = method,
                                  balanced = balanced)
     
-    
+    # The results of the ATE with only a sub sample are saved here, and these
+    # variables contain the distribution of every partial and overall ATE.
     if (method != "simple_att")  b_res_partial[[i]] <- t(as.matrix(b_est$partial_att$coef))
     b_res_overall[[i]] <- round(b_est$overall_att, 4)
   }
   
-  # Calculation of se for partial effects
+  # The standard error of the partial and overall ATE are calculated from their 
+  # respective distribution of ATE, but before the list of which contains the
+  # ATT must be collapsed in order to yield a data frame.
   b_res_partial <- map_dfr(b_res_partial, as.data.frame)
   se_partial <- apply(b_res_partial, 2, sd)
-  
-  # Calculation of se for overall effects
   b_res_overall <- unlist(b_res_overall)
   se_overall <- sd(b_res_overall)
   
-  # Extract ATT with full sample
+  # Calculating the ATT with the full sample.
   est <- calculating_agg_att(data = data,
                              year_input = year_input,
                              group_input = group_input,
@@ -610,7 +619,8 @@ calculate_att_se <- function(data = qwi,
                              method = method,
                              balanced = balanced)
   
-  
+  # The results of the ATT and the corresponding standard erros are
+  # saved as the outcome of this function.
   est$partial_att$b_se <- round(se_partial, 4)
   est$overall_att <- cbind(est$overall_att, se_overall)
   colnames(est$overall_att) <- c("coef", "b_se")
