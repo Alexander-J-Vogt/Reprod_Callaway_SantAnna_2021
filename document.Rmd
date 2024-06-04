@@ -802,7 +802,13 @@ The evaluation of the effect of the minimum wage increase on teen employment is 
 
 In the following the results are discussed after the table structure is explained. In "twfe", the TWFE estimator is saved the standard error and in "simple", the simple-weighted average over all ATT(g,t) can be found with the bootstrapped standard error. The table structure follows a simple structure from here on, the partial effect can be found under partial_effects and the overall aggregated ATE in "overall_att". In "group", the group-specific effects can be found and the time represents the treatment group, e.g., row one represent the group-specific effect of group 2004. In "calendar", the calendar time effects can be found, while the column time represents a year in our available period. In "eventstudy_bal" & "eventstudy_unbal, contain the event study effects for each event-time e.
 
-In Table (1), the TWFE effect is a positive but insignificant estimator. A completely different picture can be seen if the simple-weighted average ATT is observed, which suggests a 4.45% decrease in teen employment, due to the minimum wage increase. The group-specific ATT shows that group 2004, the one with the longest post-treatment period, also has the greatest ATT as teen employment decreases by 8.94%. The group-specific effect declines with a shortening post-treatment period. The calendar time effects can be interpreted as what the ATE of all groups is after a period is. Thus, in row 2007, the interpretation would be that teen emplyoment decreases by 4.03% across all group in 2007. In this context, it is important to point out that the ATE are fairly stable over the years. In the balanced event-study, only groups are included, which were observed for more than one period and, thus, excludes group 2007. The effect 
+In Table (1), the TWFE effect is a positive but insignificant estimator. A completely different picture can be seen if the simple-weighted average ATT is observed, which suggests a 4.45% decrease in teen employment, due to the minimum wage increase. The group-specific ATT shows that group 2004, the one with the longest post-treatment period, also has the greatest ATT as teen employment decreases by 8.94%. The group-specific effect declines with a shortening post-treatment period. The calendar time effects can be interpreted as what the ATE of all groups is after a period is. Thus, in row 2007, the interpretation would be that teen emplyoment decreases by 4.03% across all group in 2007. In this context, it is important to point out that the ATE are fairly stable over the years. In the balanced event-study, only groups are included, which were observed for more than one period, i.e., group 2007 is excluded. The effect seems to grow with longer exposure to treatment, which can be seen by the increasing negative effect over time for balanced and unbalanced event study effects.
+
+In table (2), the unconditional ATT for the full sample can be observed, Thereby, it is important to recognize that the effect sizes are similar for every treatment effects independent of its nature. This should not be the case because somebody would expect that the ATT's to lay higher, due to the uncontrolled country-specific trends. One reason for the difference could be the data itself, as CS (2021) give little detail on how the data was matched and which variables excately were used. Thus, the collection of the dataset and cleaning of the dataset could be the core reason for this result.
+
+In the next step, the regional effects are discussed on how they differ to the results of the full sample. The discussion on Western region is excluded because states of this region only increased in the year 2007 the minimum wage. Therefore, the effects for each aggregation version is the same because the group was only treated for one year and there is no variation in treatment timing.
+
+.
 
 ```{r warning=FALSE, include=FALSE}
 
@@ -833,31 +839,21 @@ print(results_total$u_results)
 ```
 
 ```{r}
-print("(3) Western Census Region: Conditional ATE")
-print(results_west$c_results)
-```
-
-```{r}
-print("(4) Western Census Region: Unconditional ATE")
-print(results_west$c_results)
-```
-
-```{r}
-print("(5) Midwest Census Region: Conditional ATE")
+print("(3) Midwest Census Region: Conditional ATE")
 print(results_midwest$c_results)
 ```
 
 ```{r}
-print("(6) Midwest Census Region: Unconditional ATE")
+print("(4) Midwest Census Region: Unconditional ATE")
 print(results_midwest$c_results)
 ```
 
 ```{r}
-print("(7) Soutern Census Region: Conditional ATE")
+print("(5) Soutern Census Region: Conditional ATE")
 print(results_south$c_results)
 ```
 
 ```{r}
-print("(8) Southern Census Region: Unconditional ATE")
-print(results_$c_results)
+print("(6) Southern Census Region: Unconditional ATE")
+print(results_south$c_results)
 ```
