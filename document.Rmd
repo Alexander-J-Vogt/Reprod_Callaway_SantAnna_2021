@@ -434,7 +434,7 @@ calculating_agg_att <- function(data,
         et_results[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
       }
       
-      # 2) Overall ATE
+      # 2) Overall Agg. ATE
       # The overall event study effect is calculated by taking the mean of all
       # event study effects time effects.
       agg_et <- round(mean(et_results$coef), 4)
@@ -447,29 +447,26 @@ calculating_agg_att <- function(data,
 ## 3.4.2 Eventstudy with balanced group ---------------------------------------
     if (method == "balanced_eventstudy" & !is.null(balanced)) {
       
+      # 1) Partially Agg. ATT
       # The event study effect with groups being balanced with respect to the
       # event-time e condition the event study effect on a group being observed
       # at least for a certain amount of time according to CS (2021). Thereby,
       # the calculation of the "balanced event study effect" is identical to the 
-      # "unbalanced event study effect". Thus, this is not explained in detail
-      # anymore, but the steps in order to get the "balanced" data.
+      # "unbalanced event study effect".
       
-      # First, the indicator on how many periods a group should have been 
-      # observed is re-defined as it is an argument, which the user needs to 
-      # give the function.
+      # (A) First, the indicator on how many periods a group should have been 
+      # observed is re-defined as it is an argument of the function.
       balance_groups <- balanced
       
-      # Secondly, it must be identified, which group experienced the stated
-      # amount of period defined by the variable "balance_groups".
-      # List of unique event-time.
-      
-      # Therefore, the number of post-treatment periods is calculated by iterating
-      # over the vector with the unique treatment groups.
+      # (B) Secondly, all the groups, which were treated at least for a certain 
+      # amount of periods, must be determined.Therefore, the number of 
+      # post-treatment periods is calculated by iterating over the vector with 
+      # the unique treatment groups.
       grouplist_et <- unique(attgt_et$group)
       att_per_group <- sapply(grouplist_et, function(g){
         # Create a subset of the ATT(g,t) with only group g being represented.
         df <- attgt_et[attgt_et$group == g,]
-        # Than sum up the number of post-treatment period
+        # Than the number of post-treatment period is summed up.
         n  <- nrow(df)
         n
       })
@@ -479,10 +476,9 @@ calculating_agg_att <- function(data,
       att_per_group <- data.frame(grouplist_et, att_per_group)
       colnames(att_per_group) <- c("eventtime", "abs_nr_att")
 
-      # Than, the if-condition in the loop determines whether a group was 
-      # exposed to the treatment for the required length of "balanced_group".
-      # In the end, groups_to_exclude contains the groups, which were not observed
-      # for required treatment length.
+      # The loop determines whether a group was  exposed to the treatment for 
+      # the required length of "balanced_group". After the loop, groups_to_exclude 
+      # contains the groups, which were not observed for required treatment length.
       groups_to_exclude <- c()
       for ( i in seq_along(att_per_group$eventtime) ) {
         if ( att_per_group[i, 2] < balance_groups + 1 ) {
@@ -492,31 +488,30 @@ calculating_agg_att <- function(data,
         }
       }
       
-      # In the last step to get the "balanced" data frame with the ATT(g,t). 
-      # The groups determined above are excluded.
+      # In the last step, the "balanced" data frame of ATT(g,t) is obtained by 
+      # excluding the groups in groups_to_exclude().
       groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
       attgt_et_bal <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
       
-      # Now, the event study effect can be calclated in the same way as the 
-      # in the Unbalanced event study effect section.
+      # (C) Now, the event study effect can be calculated in the same way as the 
+      # in the unbalanced event study effect section.
       eventime_timelist <- unique(attgt_et_bal$eventtime)
       att_et_bal <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
       colnames(att_et_bal) <- c("time", "coef")
         
       for (i in seq_along(eventime_timelist)) {
-        # Selecting the post-treatment year for which the calendar time effects will be calculated
         eventime_time <- eventime_timelist[i]
         df         <- attgt_et[attgt_et_bal$eventtime == eventime_time,]
-        # Calcualte the 
         group_prob <- df$probs / sum(df$probs)
         att_et_bal[i, "time"]   <- eventime_time
         att_et_bal[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
         }  
       
-      # Only event study effects are shown, which lay in the minimum requirement
-      # of how long a group must have been observed.
+      # Only the event study effects, which lay in the minimum requirement
+      # of how long a group must have been observed. are shown.
       et_bal_results <- att_et_bal[att_et_bal$time < balance_groups + 1,]
       
+      # 2) Overall Agg. ATT
       # Calculate the aggregated event study effects by taking the mean of all
       # event study effects in the different event-time.
       agg_bal_et <- round(mean(et_bal_results$coef), 4)
@@ -524,9 +519,9 @@ calculating_agg_att <- function(data,
       # Save results on balanced event study effects
       results <- list(partial_att = et_bal_results, overall_att = agg_bal_et)
       return(results)
-    } # End of balanced event study effects if-clause
-  } # End of data-preparation if-clause
-} # End of calculating_agg_att
+    } 
+  } 
+}
 ```
 
 The function `calculate_att_se` is the final step of implementing the methodology of CS (2021). The outcome of the function is the partially and overall ATE of the choosen method and the corresponding standard errors, which are calculated by using the multiplier bootstrap proposed in CS (2021). Thereby, it is important to mention that the multiplier bootstrap in CS (2021) is used to bootstrap the influence function of an ATE, while in this term paper it used to calculate a distribution of the partial and ATT from which the distribution is calculated.
