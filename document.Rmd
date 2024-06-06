@@ -1,23 +1,21 @@
 ---
 title: "Difference-in-Differece with Various Treatment Timing and Multiple Period"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 # 1. Difference-in-Difference with Multiple Time Periods
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
-
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
 
 $$
-Y_{g, t}=\underbrace{\alpha_t+\alpha_g}_{Time \ \&\ Unit \ FE}+ \underbrace{\sum_{e=-K}^{-2} \delta_e^{\text {anticip }} \cdot D_{g, t}^e}_{Pre-trend \ \ Effects}+ \underbrace{\sum_{e=0}^L \beta_e \cdot D_{g, t}^e+v_{g, t}}_{Treatment \ Effects}
+Y_{i, t}=\underbrace{\alpha_t+\alpha_i}_{Time \ \&\ Unit \ FE}+ \underbrace{\sum_{e=-K}^{-2} \delta_e^{\text {anticip }} \cdot D_{i, t}^e}_{Pre-trend \ \ Effects}+ \underbrace{\sum_{e=0}^L \beta_e \cdot D_{i, t}^e+v_{i, t}}_{Treatment \ Effects}
 $$
 
-# 4. Code
+# 3. Implementatino of CS (2021)
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # In this line Remove existing environment in order to make sure that 
 rm(list = ls(all = TRUE))
 
@@ -34,33 +32,29 @@ library(BMisc)
 library(plm)
 library(lmtest)
 
-# Please set here the working directory
 
-# load data
-qwi <- read_rds(paste0("./", "01_Data/cs_data.RDS"))
-qwi <- data.table(qwi)
   
 ```
 
 ## 4.1 Calculating the aggregated average treatment effects
 
-In the following the two-step procedure of CS (2021) is implemented in form of two functions separate functions. In the first function `calculating_agg_att`, the partially and overall aggregated average treatment effects (Agg. ATE) are calculated by first calculating the group-time average treatment effects $$ATT(g,t)$$ and than using the aggregation methodology of CS (2021). The second function `calculate_att_se`, calculates the standard error of each aggregated average treatment effects with the multiplier bootstrap.
+In the following, the two-step procedure of CS (2021) is implemented in form of two separate functions. In the first function `calculating_agg_att`, the partially and overall aggregated average treatment effects (Agg. ATE) are calculated by first calculating the group-time average treatment effects $ATT(g,t)$ and than using the aggregation methodology of CS (2021).  The second function `calculate_att_se`, calculates the standard error of each aggregated average treatment effects with multiplier bootstrapping.
 
-The function `calculating_agg_att` is the main function of this term paper and needs several arguments in order to calculate Agg. ATT. The structure of the function is inspired by the did-package of CS (2021). The core argument is the method-argument, where the user can choose between the simple-weighted ATE,group-specific ATE, calendar time effect, and event-study effects with balanced and unbalanced event time. In order to calculate the event study effect the function needs to know for how long a period should have been treated, which can be specified with the balanced-argument. Moreover, the argument unconditional_ind decides on whether to use the unconditional parallel trend assumption (PTA) or the conditional PTA, which is the default option. If the conditional PTA is used, pre-treatment covariates should be given to the argument formula. Additionally, this function needs a balanced panel data set and the name of time indicator variable, the group-indicator variable, the outcome variable, the individual identification variable and the treatment-indicator variable.
+The function `calculating_agg_att` is the main function of this term paper and needs several arguments in order to calculate Agg. ATT. The structure of the function is inspired by the code application of CS (2021).  The core argument is the method-argument, where the user can choose between the simple-weighted ATE, group-specific ATE, calendar time effects, and event-study effects with balanced and unbalanced event-time. The balanced-argument is needed for the case of performing the balanced event study and requires a number indicating for how many periods a group should have already been treated. Moreover, the unconditional_ind-argument decides on whether to use the unconditional parallel trend assumption (PTA) or the conditional PTA, the later one is the default option. If the conditional PTA is used, pre-treatment covariates should be given to the formula-argument. Additionally, the function requires a balanced panel data set and the name of the time indicator variable, the group-indicator variable, the outcome variable, the individual identification variable and the treatment-indicator variable.
 
 ```{r}
 
 # Unconditional DiD-estimator  -----
-
-# Unconditional_att is the function to calculate the unconditional ATT in the 
-# calculating_agg_att is calculated by simply taking the difference of the 
-# treatment effects of the pre- and post-treatment assuming that the standard 
-# PTA holds.
 unconditional_att <- function(outcome_post, outcome_pre, treatment) {
+# The Unconditional_att-function calculates the unconditional ATT in the 
+# calculating_agg_att-function by first estimating the treatment effect for the 
+# pre- and post-treatment outcome separately.
   results_post <- lm(outcome_post ~ treatment)
   results_pre  <- lm(outcome_pre ~ treatment)
   coef_post <- coef(results_post)[2]
   coef_pre  <- coef(results_pre)[2]
+  # Then, the difference between the two treatment effects is taken, which 
+  # yields the ATT.  
   att <- coef_post - coef_pre
   
   # Saving the results in list
@@ -68,7 +62,7 @@ unconditional_att <- function(outcome_post, outcome_pre, treatment) {
   results <- list(ATT = att)
 }
 
-spec_formula_log <- ~ -1 + lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + leduc
+# spec_formula_log <- ~ -1 + lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + leduc
 
 calculating_agg_att <- function(data,
                                 year_input,
@@ -85,7 +79,7 @@ calculating_agg_att <- function(data,
   # 1. Standardize variables & basic calculations
   # In this section, the arguments given to the function are re-defined in order
   # to allow a universal usage of the function and the basic variables needed for 
-  # the further procedure are defined 
+  # the further procedure are defined.
   
   # The variables are re-defined and standardized in order to guarantee universal
   # application of the function.
@@ -115,7 +109,7 @@ calculating_agg_att <- function(data,
   grouplist <- grouplist[grouplist != 0]
   n_unique <- length(unique(data_original$id))
   
-  # Here, a empty data frame is setup for later saving the ATT(g,t) 
+  # Here, an empty data frame is setup for later saving the ATT(g,t) 
   num_of_cases <- (length(timelist) - 1) * length(grouplist)
   attgt.df <- as.data.frame(matrix(NA, nrow = num_of_cases, ncol = 3))
   colnames(attgt.df) <- c("attgt", "group", "year")
@@ -128,7 +122,7 @@ calculating_agg_att <- function(data,
   
   # 2. The double loop calculates the ATT(g,t), i.e., the disaggregated ATE.
   # Therefore, the first loop iterates over all different groups and the inner 
-  # loop iterates over the available periods. Thus, the inner loop calculates 
+  # loop iterates over the available periods. Hence, the inner loop calculates 
   # all the ATT(g,t) of one group.
   for (g in grouplist) {
      for (t in timelist) {
@@ -137,21 +131,18 @@ calculating_agg_att <- function(data,
       # the full dataset available as later in the code, the data gets subset.
       data <- data_original
       
-      # The ATT(g,t) is always calculated for two periods and excludes any 
-      # information of periods before, after and in the middle of the two periods.
-      # By excluding the other periods, it is possible to estimate the ATT(g,t)
-      # without the influence of dynamic heterogeneous effects of the period before.
-      # Therefore,(A) a pre-treatment period (or reference year) needs to be determinant
-      # and (B) the data needs to include two years and only a control and treatment
-      # group.
+      # The ATT(g,t) is calculated for two periods for a treated group g and 
+      # uses the "never-treated" units as control group. Therefore, (A) a 
+      # pre-treatment period (or reference year) needs to be determinant and (B) 
+      # the data needs to include two years and the treatment and control group.
       
       # (A) The choice of reference year depends on whether the period of the current 
       # loop is laying in the pre- or post-treatment period. If the current period
-      # of the loop is laying in the post-treatment period, the if-condition sets
-      # the reference year equal to the first pre-treatment period of a group. Thus,
-      # the treatment effects is calculated. Otherwise, the reference year is set
-      # equal to the current period of the loop iteration and a pseudo- ATT(g,t)
-      # is calculated, which allows to test the PTA.
+      # of the loop is laying in the post-treatment period, then the reference year 
+      # is equal to the first pre-treatment period of a group. Otherwise, the 
+      # reference year is set equal to the current period of the loop iteration, 
+      # which allows to estimate pseudo- ATT(g,t) like the pre-treatment 
+      # estimators in the dynamic TWFE regression.
       if (t >= g) {
         reference_year <- g - 1
       } else {
@@ -159,22 +150,21 @@ calculating_agg_att <- function(data,
       }
       
       # (B) After having determined the reference year, the dataset can be subsetted
-      # given the reference year and the period if the current period of the loop
-      # iteration + 1. Therefore, the data includes only two time periods.
-      data <- subset(data, year %in% c(reference_year, t + 1)) 
+      # given the reference year and the period after the current loop-period.
+      data <- subset(data, year %in% c(reference_year, t + 1))
       
-      # In the next step, the two-year data sets gets further restricted by only
-      # including the "never-treated" group and the treatment group of the 
-      # current loop iteration. Therefore, a index-indicator is need in order to
+      # In the next step, the two-year dataset gets further restricted by only
+      # including the treatment group of the current outer-loop and the
+      # "never-treated" group. Therefore, a index-indicator is need in order to
       # get a dataset, which only includes the necessary groups.
       data$g_ <- ifelse(data$group == g, 1, 0) 
       data$c_ <- ifelse(data$group == 0, 1, 0)
       index_gc <- (data$g_ == 1) | (data$c_ == 1)
-      data_sel <- data[index_gc,] # can be deleted
+      # The actual subsetting of the restricted data.
+      data_sel <- data[index_gc,]
 
-      # # Create treatment indicator and date variables as character # Can be deleted
-      data_sel <- data_sel|>
-         mutate(treat = ifelse(group == g, 1, 0))
+      # Create treatment indicator and date variables as character
+      data_sel <- data_sel |> mutate(treat = ifelse(group == g, 1, 0))
       
       # This if-condition makes sure that the subsetted dataset includes exactely 
       # two periods and jumps into the next loop if this is not the case.
@@ -195,7 +185,7 @@ calculating_agg_att <- function(data,
         next
       }
 
-      # The final step is to actually compute the conditional and unconditional ATT(g,t)
+      # The final step is to compute the conditional and unconditional ATT(g,t)
       # for group at period t. Thereby, the user of the function can simply choose
       # between these two option by simply setting the argument "unconditional"
       # respectively to the preferred estimator.
@@ -545,9 +535,7 @@ calculating_agg_att <- function(data,
       results <- list(partial_att = et_bal_results, overall_att = agg_bal_et)
       return(results)
     } # End of balanced event study effects if-clause
-
   } # End of data-preparation if-clause
-
 } # End of calculating_agg_att
 ```
 
@@ -796,9 +784,9 @@ calculate_various_specifications_west <-function(data) {
 
 Callaway & Sant'Anna (2021) explore the effect of an increase in the minimum wage on teen employment in the United States. In the period between 2001 and 2007, several states increased their minimum wage above the federal minimum wage in different years, while the federal minimum wage stayed constant. This allows CS (2021) to exploit the variation on state-level with respect to minimum wage increases and enables them to calculate ATE. The groups are defined according to the year of the minimum wage increase and all states without any increase are belonging to the "never-treated" group.
 
-In this term paper, the same application of CS (2021) is performed with the implementation presented above. Thereby, the dataset used by CS (2021) is recreated by using the information on teen employment from the public available Quarterly Workforce Indicator (QWI) on county-level and information on the pre-treatment characteristics of counties in the U.S. from the 2000 County and City Databook. The last dataset allows to control for several county-specific characteristics such as county population in 2000, fraction of the white population, share of the population with high-school diploma, the median income in 1997 and share of population below the poverty level. These  values are than used in their logarithmized-version for controlling the county-specific trends and, thus, allow to implement the conditional PTA like in CS (2021). Moreover, it is important to mention that the full sample used in this term paper contain 2260 counties, while the dataset of CS (2021) has 2284. Thus, in terms of sample size both dataset are close to each other.
+In this term paper, the same application of CS (2021) is performed with the implementation presented above. Thereby, the dataset used by CS (2021) is recreated by using the information on teen employment from the public available Quarterly Workforce Indicator (QWI) on county-level and information on the pre-treatment characteristics of counties in the U.S. from the 2000 County and City Databook. The last dataset allows to control for several county-specific characteristics such as county population in 2000, fraction of the white population, share of the population with high-school diploma, the median income in 1997 and share of population below the poverty level. These values are than used in their logarithmized-version for controlling the county-specific trends and, thus, allow to implement the conditional PTA like in CS (2021). Moreover, it is important to mention that the full sample used in this term paper contain 2260 counties, while the dataset of CS (2021) has 2284. Thus, in terms of sample size both dataset are close to each other.
 
-The evaluation of the effect of the minimum wage increase on teen employment is done on the full sample as in CS (2021), which contains all three different treated groups, i.e., group 2004, group 2006 and group 2007. The research is also extended to evaluate the effect on regional-level according to the Census Region defined by the U.S. Census Bureau. The following regions are observed: the Western, Southern and Midwest region. Thereby, all three groups have a different number treatment groups. While the Midwestern region has all three groups, the southern region only contain group 2006 and 2007 and the Western group has only the group 2007. 
+The evaluation of the effect of the minimum wage increase on teen employment is done on the full sample as in CS (2021), which contains all three different treated groups, i.e., group 2004, group 2006 and group 2007. The research is also extended to evaluate the effect on regional-level according to the Census Region defined by the U.S. Census Bureau. The following regions are observed: the Western, Southern and Midwest region. Thereby, all three groups have a different number treatment groups. While the Midwestern region has all three groups, the southern region only contain group 2006 and 2007 and the Western group has only the group 2007.
 
 In the following the results are discussed after the table structure is explained. In "twfe", the TWFE estimator is saved the standard error and in "simple", the simple-weighted average over all ATT(g,t) can be found with the bootstrapped standard error. The table structure follows a simple structure from here on, the partial effect can be found under partial_effects and the overall aggregated ATE in "overall_att". In "group", the group-specific effects can be found and the time represents the treatment group, e.g., row one represent the group-specific effect of group 2004. In "calendar", the calendar time effects can be found, while the column time represents a year in our available period. In "eventstudy_bal" & "eventstudy_unbal, contain the event study effects for each event-time e.
 
@@ -813,6 +801,11 @@ In table (3) and (4), the results on the Midwest region can be interpreted and a
 In table (5) and (6), the mixed results for the Soutern region can be interpreted and also here there is great similarity betwenn the ATT with conditional and unconditional PTA. The group-specific effects are a lot smaller for this region or are equal to zero as it is the case for group 2007. The calendar time effects show that the average effect in 2006 is insignicantly positive, while the effect is positive in the year 2007 but has only one-fourth of the size of the effects of the full sample. The event study effects for balanced and unbalanced group in event-time 0 is nearly equal to zero, while the one period after the treatment a similar effect magnitude as in the full sample is observed.
 
 ```{r warning=FALSE, include=FALSE}
+# Please set here the working directory
+
+# load data
+qwi <- read_rds(paste0("./", "01_Data/cs_data.RDS"))
+qwi <- data.table(qwi)
 
 # In these lines, the subset of each Census Region is created.
 qwi_west <- qwi |> filter(region == "West")
