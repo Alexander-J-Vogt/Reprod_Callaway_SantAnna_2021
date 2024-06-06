@@ -298,7 +298,7 @@ calculating_agg_att <- function(data,
     return(results)
   }
 
-## 4.2 Group-Time ATT(g,t) ----
+## 3.2 Group-Time ATT(g,t) ----
   
   if (method == "group_specific_att") {
     
@@ -339,7 +339,7 @@ calculating_agg_att <- function(data,
     return(results)
   }
 
-## 4.3 Calendar Time Effects ----
+## 3.3 Calendar Time Effects ----
   if (method == "calendar_att") {
     
     # 1) Partially Agg. ATE
@@ -388,41 +388,41 @@ calculating_agg_att <- function(data,
   }
 
 
-## 4.4 Event Study Design ----
-# Preparation of event time data in the case, the event study design is calculated
+## 3.4 Event Study Design ----
    if (method %in% c("unbalanced_eventstudy", "balanced_eventstudy")) {
       
     # In this section the event study effects is calculated for the balanced and
     # unbalanced event time. Therefore, the interest lays on the heterogeneity of 
-    # treatment effects with respect to exposure to the treatment. In order to be
-    # able to calculate to the event study effect, the event time needs to be 
-    # calculated by taking the difference between year of the ATT(g,t) and the 
-    # group of a ATT(g,t).  
+    # treatment effects with respect to exposure to the treatment. In the first 
+    # step, the event-time needs to be calculated by taking the difference 
+    # between year of the ATT(g,t) and the group of a ATT(g,t).  
     attgt_et <- attgt_probs_df
     attgt_et$eventtime <- attgt_et$year - attgt_et$group
     
-    # Than all pre-treatment event times are exluded as the interest lays on the 
+    # Than all pre-treatment event times are exuded as the interest lays on the 
     # exposure to the treatment.
     attgt_et <- attgt_et[attgt_et$eventtime >= 0, ]
 
-### 4.4.1 Event Study Effect ---------------------------------------------------
+### 3.4.1 Event Study Effect ----
     if (method == "unbalanced_eventstudy") {
       
+      # 1) Partial Agg. ATE
       # The event study effects without balancing the event time measures the
       # effect of a treatment e periods after a treatment. Therefore, the weighted
       # sum of all group-time ATT of a event-time e is taken and divided by the 
-      # sum of all weights of groups in event-time e. Thus, the logic of this
-      # calculation is very similar to the calculation of the calendar time effects.
+      # sum of all weights of groups in event-time e.
       
-      # The calculation of the event study effect requires a variable, which
-      # contains the unique set of event-time. Than, the loop can be used to 
-      # calculate the event study effects for each event-time e
+      # The calculation of the event study effect requires a variable with the 
+      # unique set of event-time. Than, the loop can be used to calculate the 
+      # event study effects for each event-time e.
+      eventime_timelist <- unique(attgt_et$eventtime)
+      
       # Creating an empty dataset to safe the event study effects of each
       # event-time e
-      eventime_timelist <- unique(attgt_et$eventtime)
       et_results <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
       colnames(et_results) <- c("time", "coef")
       
+      # The loop to calculate the event effect effects
       for (i in seq_along(eventime_timelist)) {
         # Selecting the event-time e of the current iteration
         eventime_time <- eventime_timelist[i]
@@ -434,16 +434,17 @@ calculating_agg_att <- function(data,
         et_results[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
       }
       
-      # Calculate aggregated event study effects
-      agg_et <- round(mean(et_results$coef),4)
-      
+      # 2) Overall ATE
       # The overall event study effect is calculated by taking the mean of all
       # event study effects time effects.
+      agg_et <- round(mean(et_results$coef), 4)
+      
+      # Save final calendar time effects
       results <- list(partial_att = et_results, overall_att = agg_et)
       return(results)
     } # End of unbalanced event-study effects if-clause
 
-## 4.4.2 Eventstudy with balanced group ---------------------------------------
+## 3.4.2 Eventstudy with balanced group ---------------------------------------
     if (method == "balanced_eventstudy" & !is.null(balanced)) {
       
       # The event study effect with groups being balanced with respect to the
