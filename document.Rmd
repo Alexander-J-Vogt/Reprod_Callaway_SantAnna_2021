@@ -13,7 +13,7 @@ $$
 Y_{i, t}=\underbrace{\alpha_t+\alpha_i}_{Time \ \&\ Unit \ FE}+ \underbrace{\sum_{e=-K}^{-2} \delta_e^{\text {anticip }} \cdot D_{i, t}^e}_{Pre-trend \ \ Effects}+ \underbrace{\sum_{e=0}^L \beta_e \cdot D_{i, t}^e+v_{i, t}}_{Treatment \ Effects}
 $$
 
-# 3. Implementatino of CS (2021)
+# 3. Code-Implementation of the Methodology
 
 ```{r message=FALSE, warning=FALSE}
 # In this line Remove existing environment in order to make sure that 
@@ -36,7 +36,7 @@ library(lmtest)
   
 ```
 
-## 4.1 Calculating the aggregated average treatment effects
+## 3.1 Calculating the aggregated average treatment effects
 
 In the following, the two-step procedure of CS (2021) is implemented in form of two separate functions. In the first function `calculating_agg_att`, the partially and overall aggregated average treatment effects (Agg. ATE) are calculated by first calculating the group-time average treatment effects $ATT(g,t)$ and than using the aggregation methodology of CS (2021).  The second function `calculate_att_se`, calculates the standard error of each aggregated average treatment effects with multiplier bootstrapping.
 
@@ -113,7 +113,7 @@ calculating_agg_att <- function(data,
   num_of_cases <- (length(timelist) - 1) * length(grouplist)
   attgt.df <- as.data.frame(matrix(NA, nrow = num_of_cases, ncol = 3))
   colnames(attgt.df) <- c("attgt", "group", "year")
-  att.gt.ls <- list()
+  # att.gt.ls <- list()
   
   # The number-variable is needed for the Loop, which calculates the different
   # ATT(g,t) and is needed for saving the ATT(g,t) in the right row of the
@@ -153,41 +153,41 @@ calculating_agg_att <- function(data,
       # given the reference year and the period after the current loop-period.
       data <- subset(data, year %in% c(reference_year, t + 1))
       
-      # In the next step, the two-year dataset gets further restricted by only
+      # (C) In the next step, the two-year dataset gets further restricted by only
       # including the treatment group of the current outer-loop and the
-      # "never-treated" group. Therefore, a index-indicator is need in order to
-      # get a dataset, which only includes the necessary groups.
+      # "never-treated" group. Therefore, a index-indicator is needed to
+      # get a dataset, which only includes these two groups.
       data$g_ <- ifelse(data$group == g, 1, 0) 
       data$c_ <- ifelse(data$group == 0, 1, 0)
       index_gc <- (data$g_ == 1) | (data$c_ == 1)
       # The actual subsetting of the restricted data.
       data_sel <- data[index_gc,]
 
-      # Create treatment indicator and date variables as character
+      # Create treatment indicator based on the current group in the outer-loop.
       data_sel <- data_sel |> mutate(treat = ifelse(group == g, 1, 0))
       
       # This if-condition makes sure that the subsetted dataset includes exactely 
-      # two periods and jumps into the next loop if this is not the case.
+      # two periods and jumps into the next loop if it is not the case.
       if (length(unique(data$year)) == 2) {
       
-      # The function, which calculate the conditional and unconditional ATT(g,t),
-      # need data in the wide format such that there exists a outcome variable
-      # for the pre- and post-treatment period. Thus, rows of the wide dataset 
-      # is equal to the number of unique observations. (The code follows
-      # the idea of BMisc::panel2cs2, but is a own implementation.)
-      data_wide       <- arrange(data_sel, id, year)
-      data_wide$.y1   <- data_wide$outcome
-      data_wide$.y0   <- shift(data_wide$outcome, 1)
+      # (D) The functions for calculating the conditional and unconditional ATT(g,t)'s,
+      # need data in wide format in which the outcome variable is separately available as
+      # outcome in the pre- and post-treatment period. Thus, rows of the wide dataset 
+      # is equal to the number of unique observations/id-variable. (The code is
+      # an implementation of BMisc::panel2cs2. s.h. Callaway (2024))
+      data_wide <- arrange(data_sel, id, year)
+      data_wide$out_post <- data_wide$outcome
+      data_wide$out_pre <- shift(data_wide$outcome, 1)
       data_wide$index <- ifelse(data_wide$year == reference_year, 1, 0)  
-      data_wide       <- data_wide[data_wide$index == 0,]
+      data_wide <- data_wide[data_wide$index == 0,]
       
       } else {
         next
       }
 
-      # The final step is to compute the conditional and unconditional ATT(g,t)
+      # (F) The final step is to compute the conditional and unconditional ATT(g,t)
       # for group at period t. Thereby, the user of the function can simply choose
-      # between these two option by simply setting the argument "unconditional"
+      # between these two options by simply setting the argument "unconditional"
       # respectively to the preferred estimator.
       
       # Creating a matrix with all values of the pre-treatment covariates
@@ -196,33 +196,34 @@ calculating_agg_att <- function(data,
       if (unconditional == TRUE) {
       # The first option is to calculate the ATT(g,t) with the PTA holding unconditionally.
       # The estimation has already been  explained in detail in the beginning of this
-      # section and is a classical canonical DiD linear regression.
-      att <- unconditional_att(outcome_post = data_wide$.y1,
-                               outcome_pre  = data_wide$.y0,
+      # section and is a classical canonical DiD ATE.
+      att <- unconditional_att(outcome_post = data_wide$out_post,
+                               outcome_pre  = data_wide$out_pre,
                                treatment    = data_wide$treat)
         
       } else {
       
       # The second option is to calculate the ATT(g,t) with the PTA holding conditional
-      # to pre-treatment covariates. Thereby, the non-parametric identified doubly-robust
-      # estimator is used, which combines the outcome regression estimator (OR) of 
-      # Heckman et al. (1997) and inverse probability weighting estimator (IPW) of 
-      # Abadie (2005). The OR relies on a correctly modeled outcome evolution of 
-      # the control group conditional on covariates, while the IPW only relies on 
-      # the correctly modeled probability of belonging to group g (CS, 2021). 
-      # The doubly-robust estimators is a combination of both of the OR and IPW
-      # and thus has the advantage that it yields a correct estimator, if either
-      # the ouctome evolution or the probabilites of belonging to a group is
-      # correctly estimated.
-      att <- DRDID::drdid_panel(y1 = data_wide$.y1,
-                                y0 = data_wide$.y0,
+      # to pre-treatment covariates following the non-parametric identified doubly-robust (DR)
+      # DiD estimation of Sant’Anna & Zhao (2020). The DR DiD combines the outcome regression 
+      # estimator (OR) of Heckman et al. (1997) and inverse probability weighting 
+      # estimator (IPW) of Abadie (2005). Thereby, Sant'Anna & Zhao (2022) stress
+      # out that the OR relies on a correctly modeled outcome evolution of the 
+      # control group conditional on covariates, while the IPW only relies on the
+      # correctly modeled probability of belonging to group g. The DR DiD estimator 
+      # is a combination of the OR and IPW and thus has the advantage 
+      # that it yields a correct estimator, if either the outcome evolution or 
+      # the probabilities of belonging to a group is correctly estimated.
+      att <- DRDID::drdid_panel(y1 = data_wide$out_post,
+                                y0 = data_wide$out_pre,
                                 D  = data_wide$treat,
                                 covariates = covariates,
                                 inffunc    = FALSE,
                                 boot       = FALSE)
       }
       
-      # The ATT(g,t) effects are saved in this data frame.
+      # All ATT(g,t) effects are saved in this data frame and is the final
+      # result of this loop.
       attgt.df[number, 1] <- att$ATT 
       attgt.df[number, 2] <- g
       attgt.df[number, 3] <- t + 1
