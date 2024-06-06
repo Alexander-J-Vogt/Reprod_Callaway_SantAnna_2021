@@ -12,7 +12,7 @@ When you save the notebook, an HTML file containing the code and output will be 
 The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
 
 $$
-Y_{g, t}=\alpha_t+\alpha_g+\sum_{e=-K}^{-2} \delta_e^{\text {anticip }} \cdot D_{g, t}^e+\sum_{e=0}^L \beta_e \cdot D_{g, t}^e+v_{g, t}
+Y_{g, t}=\underbrace{\alpha_t+\alpha_g}_{Time \ \&\ Unit \ FE}+ \underbrace{\sum_{e=-K}^{-2} \delta_e^{\text {anticip }} \cdot D_{g, t}^e}_{Pre-trend \ \ Effects}+ \underbrace{\sum_{e=0}^L \beta_e \cdot D_{g, t}^e+v_{g, t}}_{Treatment \ Effects}
 $$
 
 # 4. Code
