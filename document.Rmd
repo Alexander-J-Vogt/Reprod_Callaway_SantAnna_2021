@@ -249,9 +249,6 @@ calculating_agg_att <- function(data,
   # which gives gives the row of each ATT(g,t) for each group in the post-treatment
   # period.
   
-  # time_min <- min(data$year)
-  # time_max <- max(data$year)
-  
   # The following loop, the probability of belonging to a treated group g are
   # are calculated. Therefore, a empty dataset is prepared for saving the 
   # weights in it.
