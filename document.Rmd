@@ -235,7 +235,7 @@ calculating_agg_att <- function(data,
   }
   
 
-# 3. Aggregated ATT(g,t) ----
+# 3. Aggregated ATT(g,t) according to CS (2021) ----
 
 ## 3.0 Preparation of probabilities & index ----
   
@@ -278,24 +278,21 @@ calculating_agg_att <- function(data,
   if (method == "simple_att") {
   
     # The simple-weighted average of ATT(g,t) is a measure to evaluate the overall 
-    # ATE of the treatment and might be a good first step to evaluate the treatment 
-    # before continuing with less aggregated ATE. In order to calculate the measure,
-    # all the ATT(g,t) of all groups in the post-treatment period are weighted 
-    # with the respective probability of belonging to the group g. Then  all these 
-    # weighted ATT(g,t) are summed up and divided by kappa. Kappa has the purpose
-    # to normalize the weights and is the sum of all used probabilities over all 
-    # time periods and groups. E.g., group 2006 contributes two ATT(g,t) to the 
-    # simple-weighted ATT, if the sample goes until 2007. Thus, the weight of group
-    # 2006 enters kappa two times.
+    # ATE of the treatment. In order to calculate the measure, all the ATT(g,t) 
+    # of all groups in the post-treatment period are weighted with the respective 
+    # probability of belonging to the group g. Then, all the weighted ATT(g,t) 
+    # are summed up and divided by kappa. Kappa has the purpose to normalize the 
+    # weights and is the sum of all used probabilities over all time periods and 
+    # groups. 
     
-    # This line selects the relevant ATT(g,t) in the post-treatment period.
+    # This line selects all the relevant ATT(g,t) in the post-treatment period.
     aggte_simple <- attgt_probs_df[index_post, ]
     
     # Than the  sum of probabilities corresponding to ATT(g,t) in the
-    # post-treatment period over all groups is calculated.
+    # post-treatment period over all groups and periods is calculated.
     kappa <- sum(aggte_simple$probs)
     
-    # The simple-weighted ATT is calculated according to the above description.
+    # The simple-weighted ATT is calculated according to the description above.
     simple_att_est <- round(sum(aggte_simple$attgt * aggte_simple$probs) / kappa, 4)
     
     # This line saves the results.
