@@ -235,28 +235,25 @@ calculating_agg_att <- function(data,
   }
   
 
-# 4. Aggregated ATT(g,t) -------------------------------------------------------
+# 3. Aggregated ATT(g,t) ----
 
-## 4.0 Preparation of probabilities & vectors ----------------------------------
+## 3.0 Preparation of probabilities & index ----
   
   # Set up a copy of the original dataset as the original dataset is later needed
   # for the event study effects.
   data <- data_original
   
-  # After having calculated the ATT(g,t) for each group in each period,
-  # the Agg. ATT can be calculated. Therefore, the weights for aggregating the 
-  # the different ATT(g,t) needs to be calculated and a post index is calculated,
-  # which gives gives the row of each ATT(g,t) for each group in the post-treatment
-  # period.
-  
-  # The following loop, the probability of belonging to a treated group g are
-  # are calculated. Therefore, a empty dataset is prepared for saving the 
-  # weights in it.
+  # After having calculated the ATT(g,t) for each group in each period, the 
+  # weights for aggregating the different ATT(g,t) need to be calculated.
+  # Therefore, the following loop determines the probability of belonging to a
+  # treated group g.
+  # First, creating an empty dataset for saving the weights in it.
   weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
   colnames(weights) <- c("group", "size", "probs")
   
+  # Secondly, the weights of each group are calculated
   for (i in seq_along(grouplist)) {
-    # First, the group for which the weight is calculated, is getting selected.
+    # The group for which the weight is calculated, is getting selected.
     g <- grouplist[i]
     
     # Then, the size of the subgroup g is calculated and divided by the total
@@ -268,15 +265,15 @@ calculating_agg_att <- function(data,
   
   # In the last step, the probabilities of each group are getting merged 
   # with the data frame, which contains the ATT(g,t). This dataset is playing 
-  # a key role in the following section for calculation of the Agg ATT. 
+  # a key role in the following section for the calculation of the Agg. ATT. 
   attgt_probs_df <- merge(attgt.df, weights, by.x = "group" ) 
   
-  # The index_post variable is a index for the Prob-ATT-df, which  gives the row of each ATT(g,t)
-  # for each group in the post-treatment period.
+  # The index_post variable is a index for the Prob-ATT-df, which contains the 
+  # row of each ATT(g,t) for each group in the post-treatment period.
   index_post   <- which(attgt_probs_df$year >= attgt_probs_df$group)
   
 
-## 4.1 Simple Weighted Average of ATT(g,t) -------------------------------------
+## 3.1 Simple Weighted Average of ATT(g,t) -------------------------------------
   
   if (method == "simple_att") {
   
