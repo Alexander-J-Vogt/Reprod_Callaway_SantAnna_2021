@@ -305,10 +305,11 @@ calculating_agg_att <- function(data,
   
   if (method == "group_specific_att") {
     
+    # 1) Partially Agg. ATE 
     # The group-specific ATE is of relevance for researchers if they want to 
     # evaluate the heterogeneity of a policy with respect to treatment timing.
     # Thereby, the group-specific ATE is calculated by taking the mean of all 
-    # available ATT(g,t) of a group g (Sant'Anna, 2022).
+    # available ATT(g,t) of a group g according to Sant'Anna (2022).
     
     # The first step is to select the ATT(g,t) of each group in the post-treatment 
     # period from the data frame with all ATT(g,t) and the corresponding weights
@@ -321,25 +322,25 @@ calculating_agg_att <- function(data,
     
     # Than, the second step is to calculate the group-specific ATE by taking the 
     # mean of all ATT(g,t) of a group g as above described. In each loop iteration,
-    # the group-specific ATE is calculated for another group. Therefore, the 
-    # grouplist variable is used, which contains all unique treatment groups.
+    # the group-specific ATE is calculated for another group.
     for (i in seq_along(grouplist)) {
       g <- grouplist[i]
       gte_results[i, "time"] <- g
       gte_results[i, "coef" ]  <- round(mean(gte_df[gte_df$group == g, "attgt"]), 4)
     }
     
+    # 2) Overall Agg. ATE
     # The calculation of the overall ATE of the group-specific ATE follows the
     # the same strategy of simple weighted average of ATT. Thus, the sum of
-    # weighted group-specific ATT is taken, while the weights are the
-    # probability of belonging to group g. Than, this sum is divided by the sum of
-    # of all group weights for normalization purposes.
+    # weighted group-specific ATT is taken. Than, this sum is divided by the sum of
+    # of all group weights for normalization purposes. Note that the sum with which
+    # is divide equals the kappa of the last step.
     agg_gte_results <- round(sum(gte_results$coef * weights$probs) / sum(weights$probs), 4)
     
     # This line saves the results.
     results <- list(partial_att = gte_results, overall_att = agg_gte_results)
     return(results)
-  } # End of group-specific effects if-clause
+  }
 
   
 ## 4.3 Calendar Time Effects ---------------------------------------------------
