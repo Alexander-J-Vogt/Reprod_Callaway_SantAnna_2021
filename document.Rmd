@@ -117,131 +117,129 @@ colnames(attgt.df) <- c("attgt", "group", "year")
 
 # The number-variable is needed for the Loop, which calculates the different
 # ATT(g,t) and is needed for saving the ATT(g,t) in the right row of the
-  # data frame.
-  number <- 1
-  
-  # 2. The double loop calculates the ATT(g,t), i.e., the disaggregated ATE.
-  # Therefore, the first loop iterates over all different groups and the inner 
-  # loop iterates over the available periods. Hence, the inner loop calculates 
-  # all the ATT(g,t) of one group.
-  for (g in grouplist) {
-     for (t in timelist) {
-      
-      # The data needs to be assigned for every iteration newly, in order to have 
-      # the full dataset available as later in the code, the data gets subset.
-      data <- data_original
-      
-      # The ATT(g,t) is calculated for two periods for a treated group g and 
-      # uses the "never-treated" units as control group. Therefore, (A) a 
-      # pre-treatment period (or reference year) needs to be determinant and (B) 
-      # the data needs to include two years and the treatment and control group.
-      
-      # (A) The choice of reference year depends on whether the period of the current 
-      # loop is laying in the pre- or post-treatment period. If the current period
-      # of the loop is laying in the post-treatment period, then the reference year 
-      # is equal to the first pre-treatment period of a group. Otherwise, the 
-      # reference year is set equal to the current period of the loop iteration, 
-      # which allows to estimate pseudo- ATT(g,t) like the pre-treatment 
-      # estimators in the dynamic TWFE regression.
-      if (t >= g) {
-        reference_year <- g - 1
-      } else {
-        reference_year <- t
-      }
-      
-      # (B) After having determined the reference year, the dataset can be subsetted
-      # given the reference year and the period after the current loop-period.
-      data <- subset(data, year %in% c(reference_year, t + 1))
-      
-      # (C) In the next step, the two-year dataset gets further restricted by only
-      # including the treatment group of the current outer-loop and the
-      # "never-treated" group. Therefore, a index-indicator is needed to
-      # get a dataset, which only includes these two groups.
-      data$g_ <- ifelse(data$group == g, 1, 0) 
-      data$c_ <- ifelse(data$group == 0, 1, 0)
-      index_gc <- (data$g_ == 1) | (data$c_ == 1)
-      # The actual subsetting of the restricted data.
-      data_sel <- data[index_gc,]
+# data frame.
+number <- 1
 
-      # Create treatment indicator based on the current group in the outer-loop.
-      data_sel <- data_sel |> mutate(treat = ifelse(group == g, 1, 0))
-      
-      # This if-condition makes sure that the subsetted dataset includes exactely 
-      # two periods and jumps into the next loop if it is not the case.
-      if (length(unique(data$year)) == 2) {
-      
-      # (D) The functions for calculating the conditional and unconditional ATT(g,t)'s,
-      # need data in wide format in which the outcome variable is separately available as
-      # outcome in the pre- and post-treatment period. Thus, rows of the wide dataset 
-      # is equal to the number of unique observations/id-variable (The code is
-      # an implementation of BMisc::panel2cs2. s.h. Callaway (2024)). The change
-      # to the wide format also allows later to have clustered standard errors,
-      # when the standard errors are calculated.
-      data_wide <- arrange(data_sel, id, year)
-      data_wide$out_post <- data_wide$outcome
-      data_wide$out_pre <- shift(data_wide$outcome, 1)
-      data_wide$index <- ifelse(data_wide$year == reference_year, 1, 0)  
-      data_wide <- data_wide[data_wide$index == 0,]
-      
-      } else {
-        next
-      }
+# 2. The double loop calculates the ATT(g,t), i.e., the disaggregated ATE.
+# Therefore, the first loop iterates over all different groups and the inner 
+# loop iterates over the available periods. Hence, the inner loop calculates 
+# all the ATT(g,t) of one group.
+ for (g in grouplist) {
+  for (t in timelist) {
 
-      # (F) The final step is to compute the conditional and unconditional ATT(g,t)
-      # for group at period t. Thereby, the user of the function can simply choose
-      # between these two options by simply setting the argument "unconditional"
-      # respectively to the preferred estimator.
-      
-      # Creating a matrix with all values of the pre-treatment covariates
-      covariates <- model.matrix(covariate_formula, data_wide)
-      
-      if (unconditional == TRUE) {
-      # The first option is to calculate the ATT(g,t) with the PTA holding unconditionally.
-      # The estimation has already been  explained in detail in the beginning of this
-      # section and is a classical canonical DiD ATE.
-      att <- unconditional_att(outcome_post = data_wide$out_post,
-                               outcome_pre  = data_wide$out_pre,
-                               treatment    = data_wide$treat)
-        
-      } else {
-      
-      # The second option is to calculate the ATT(g,t) with the PTA holding conditional
-      # to pre-treatment covariates following the non-parametric identified doubly-robust (DR)
-      # DiD estimation of Sant’Anna & Zhao (2020). The DR DiD combines the outcome regression 
-      # estimator (OR) and inverse probability weighting estimator (IPW). 
-      # Thereby, Sant'Anna & Zhao (2022) stress out that the OR relies on a 
-      # correctly modeled outcome evolution of the control group conditional on
-      # covariates, while the IPW only relies on the correctly modeled probability
-      # of belonging to group g. The DR DiD estimator is a combination of the OR
-      # and IPW and thus has the advantage that it yields a correct estimator, 
-      # if either the outcome evolution or the probabilities of belonging to a 
-      # group is correctly estimated. This is implented in the DRDID-package
-      # of Sant’Anna & Zhao (2020).
-      att <- DRDID::drdid_panel(y1 = data_wide$out_post,
-                                y0 = data_wide$out_pre,
-                                D  = data_wide$treat,
-                                covariates = covariates,
-                                inffunc    = FALSE,
-                                boot       = FALSE)
-      }
-      
-      # All ATT(g,t) effects are saved in this data frame and is the final
-      # result of this loop.
-      attgt.df[number, 1] <- att$ATT 
-      attgt.df[number, 2] <- g
-      attgt.df[number, 3] <- t + 1
-      
-      # Number is increased after every iteration by one in order to save the 
-      # values of the next iteration in the next row of the data frame.
-      number <- number + 1
+  # The data needs to be assigned for every iteration newly, in order to have 
+  # the full dataset available as later in the code, the data gets subset.
+  data <- data_original
+
+  # The ATT(g,t) is calculated for two periods for a treated group g and 
+  # uses the "never-treated" units as control group. Therefore, (A) a 
+  # pre-treatment period (or reference year) needs to be determinant and (B) 
+  # the data needs to include two years and the treatment and control group.
+
+  # (A) The choice of reference year depends on whether the period of the current 
+  # loop is laying in the pre- or post-treatment period. If the current period
+  # of the loop is laying in the post-treatment period, then the reference year 
+  # is equal to the first pre-treatment period of a group. Otherwise, the 
+  # reference year is set equal to the current period of the loop iteration, 
+  # which allows to estimate pseudo- ATT(g,t) like the pre-treatment 
+  # estimators in the dynamic TWFE regression.
+  if (t >= g) {
+    reference_year <- g - 1
+  } else {
+    reference_year <- t
     }
+
+  # (B) After having determined the reference year, the dataset can be subsetted
+  # given the reference year and the period after the current loop-period.
+  data <- subset(data, year %in% c(reference_year, t + 1))
+
+  # (C) In the next step, the two-year dataset gets further restricted by only
+  # including the treatment group of the current outer-loop and the
+  # "never-treated" group. Therefore, a index-indicator is needed to
+  # get a dataset, which only includes these two groups.
+  data$g_ <- ifelse(data$group == g, 1, 0) 
+  data$c_ <- ifelse(data$group == 0, 1, 0)
+  index_gc <- (data$g_ == 1) | (data$c_ == 1)
+  # The actual subsetting of the restricted data.
+  data_sel <- data[index_gc,]
+
+  # Create treatment indicator based on the current group in the outer-loop.
+  data_sel <- data_sel |> mutate(treat = ifelse(group == g, 1, 0))
+
+  # This if-condition makes sure that the subsetted dataset includes exactely 
+  # two periods and jumps into the next loop if it is not the case.
+  if (length(unique(data$year)) == 2) {
+
+  # (D) The functions for calculating the conditional and unconditional ATT(g,t)'s,
+  # need data in wide format in which the outcome variable is separately available as
+  # outcome in the pre- and post-treatment period. Thus, rows of the wide dataset 
+  # is equal to the number of unique observations/id-variable (The code is
+  # an implementation of BMisc::panel2cs2. s.h. Callaway (2024)). The change
+  # to the wide format also allows later to have clustered standard errors,
+  # when the standard errors are calculated.
+  data_wide <- arrange(data_sel, id, year)
+  data_wide$out_post <- data_wide$outcome
+  data_wide$out_pre <- shift(data_wide$outcome, 1)
+  data_wide$index <- ifelse(data_wide$year == reference_year, 1, 0)  
+  data_wide <- data_wide[data_wide$index == 0,]
+  } else {
+    next
   }
+
+  # (F) The final step is to compute the conditional and unconditional ATT(g,t)
+  # for group at period t. Thereby, the user of the function can simply choose
+  # between these two options by simply setting the argument "unconditional"
+  # respectively to the preferred estimator.
+
+  # Creating a matrix with all values of the pre-treatment covariates
+  covariates <- model.matrix(covariate_formula, data_wide)
+
+  if (unconditional == TRUE) {
+  # The first option is to calculate the ATT(g,t) with the PTA holding unconditionally.
+  # The estimation has already been  explained in detail in the beginning of this
+  # section and is a classical canonical DiD ATE.
+  att <- unconditional_att(outcome_post = data_wide$out_post,
+                           outcome_pre  = data_wide$out_pre,
+                           treatment    = data_wide$treat)
+        
+  } else {
+  
+  # The second option is to calculate the ATT(g,t) with the PTA holding conditional
+  # to pre-treatment covariates following the non-parametric identified doubly-robust (DR)
+  # DiD estimation of Sant’Anna & Zhao (2020). The DR DiD combines the outcome regression 
+  # estimator (OR) and inverse probability weighting estimator (IPW). 
+  # Thereby, Sant'Anna & Zhao (2022) stress out that the OR relies on a 
+  # correctly modeled outcome evolution of the control group conditional on
+  # covariates, while the IPW only relies on the correctly modeled probability
+  # of belonging to group g. The DR DiD estimator is a combination of the OR
+  # and IPW and thus has the advantage that it yields a correct estimator, 
+  # if either the outcome evolution or the probabilities of belonging to a 
+  # group is correctly estimated. This is implented in the DRDID-package
+  # of Sant’Anna & Zhao (2020).
+  att <- DRDID::drdid_panel(y1 = data_wide$out_post,
+                            y0 = data_wide$out_pre,
+                            D  = data_wide$treat,
+                            covariates = covariates,
+                            inffunc    = FALSE,
+                            boot       = FALSE)
+      }
+
+  # All ATT(g,t) effects are saved in this data frame and is the final
+  # result of this loop.
+  attgt.df[number, 1] <- att$ATT 
+  attgt.df[number, 2] <- g
+  attgt.df[number, 3] <- t + 1
+    
+  # Number is increased after every iteration by one in order to save the 
+  # values of the next iteration in the next row of the data frame.
+  number <- number + 1
+  }
+ }
   
 
 # 3. Aggregated ATT(g,t) according to CS (2021) ----
 
 ## 3.0 Preparation of probabilities & index ----
-  
   # Set up a copy of the original dataset as the original dataset is later needed
   # for the event study effects.
   data <- data_original
@@ -269,263 +267,256 @@ colnames(attgt.df) <- c("attgt", "group", "year")
   # In the last step, the probabilities of each group are getting merged 
   # with the data frame, which contains the ATT(g,t). This dataset is playing 
   # a key role in the following section for the calculation of the Agg. ATT. 
-  attgt_probs_df <- merge(attgt.df, weights, by.x = "group" ) 
+  attgt_probs_df <- merge(attgt.df, weights, by.x = "group" )
   
   # The index_post variable is a index for the Prob-ATT-df, which contains the 
   # row of each ATT(g,t) for each group in the post-treatment period.
   index_post   <- which(attgt_probs_df$year >= attgt_probs_df$group)
-  
 
-## 3.1 Simple Weighted Average of ATT(g,t) -------------------------------------
+## 3.1 Simple Weighted Average of ATT(g,t) ----
   
-  if (method == "simple_att") {
-  
-    # The simple-weighted average of ATT(g,t) is a measure to evaluate the overall 
-    # ATE of the treatment. In order to calculate the measure, all the ATT(g,t) 
-    # of all groups in the post-treatment period are weighted with the respective 
-    # probability of belonging to the group g. Then, all the weighted ATT(g,t) 
-    # are summed up and divided by kappa. Kappa has the purpose to normalize the 
-    # weights and is the sum of all used probabilities over all time periods and 
-    # groups. 
-    
-    # This line selects all the relevant ATT(g,t) in the post-treatment period.
-    aggte_simple <- attgt_probs_df[index_post, ]
-    
-    # Than the  sum of probabilities corresponding to ATT(g,t) in the
-    # post-treatment period over all groups and periods is calculated.
-    kappa <- sum(aggte_simple$probs)
-    
-    # The simple-weighted ATT is calculated according to the description above.
-    simple_att_est <- round(sum(aggte_simple$attgt * aggte_simple$probs) / kappa, 4)
-    
-    # This line saves the results.
-    results <- list(overall_att = simple_att_est)
-    return(results)
-  }
+if (method == "simple_att") {
+ # The simple-weighted average of ATT(g,t) is a measure to evaluate the overall 
+ # ATE of the treatment. In order to calculate the measure, all the ATT(g,t)
+ # of all groups in the post-treatment period are weighted with the respective 
+ # probability of belonging to the group g. Then, all the weighted ATT(g,t)
+ # are summed up and divided by kappa. Kappa has the purpose to normalize the 
+ # weights and is the sum of all used probabilities over all time periods and 
+ # groups.
+
+ # This line selects all the relevant ATT(g,t) in the post-treatment period.
+ aggte_simple <- attgt_probs_df[index_post, ]
+
+ # Than the  sum of probabilities corresponding to ATT(g,t) in the
+ # post-treatment period over all groups and periods is calculated.
+ kappa <- sum(aggte_simple$probs)
+ 
+ # The simple-weighted ATT is calculated according to the description above.
+ simple_att_est <- round(sum(aggte_simple$attgt * aggte_simple$probs) / kappa, 4)
+ 
+ # This line saves the results.
+ results <- list(overall_att = simple_att_est)
+ return(results)
+ }
 
 ## 3.2 Group-Time ATT(g,t) ----
   
-  if (method == "group_specific_att") {
+if (method == "group_specific_att") {
+ # 1) Partially Agg. ATE 
+ # The group-specific ATE is of relevance for researchers if they want to 
+ # evaluate the heterogeneity of a policy with respect to treatment timing.
+ # Thereby, the group-specific ATE is calculated by taking the mean of all 
+ # available ATT(g,t) of a group g according to Sant'Anna (2022).
+ 
+ # The first step is to select the ATT(g,t) of each group in the post-treatment 
+ # period from the data frame with all ATT(g,t) and the corresponding weights
+ # of each group.
+ gte_df <- attgt_probs_df[index_post, ]
     
-    # 1) Partially Agg. ATE 
-    # The group-specific ATE is of relevance for researchers if they want to 
-    # evaluate the heterogeneity of a policy with respect to treatment timing.
-    # Thereby, the group-specific ATE is calculated by taking the mean of all 
-    # available ATT(g,t) of a group g according to Sant'Anna (2022).
+ # An empty data frame is created, in which the group-specific ATE are saved.
+ gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 2))
+ colnames(gte_results) <- c("time", "coef")
+ 
+ # Than, the second step is to calculate the group-specific ATE by taking the
+ # mean of all ATT(g,t) of a group g as above described. In each loop iteration,
+ # the group-specific ATE is calculated for another group.
+ for (i in seq_along(grouplist)) {
+  g <- grouplist[i]
+  gte_results[i, "time"] <- g
+  gte_results[i, "coef" ]  <- round(mean(gte_df[gte_df$group == g, "attgt"]), 4)
+ }
     
-    # The first step is to select the ATT(g,t) of each group in the post-treatment 
-    # period from the data frame with all ATT(g,t) and the corresponding weights
-    # of each group.
-    gte_df <- attgt_probs_df[index_post, ]
+ # 2) Overall Agg. ATE
+ # The calculation of the overall ATE of the group-specific ATE follows the
+ # the same strategy of simple weighted average of ATT. Thus, the sum of
+ # weighted group-specific ATT is taken. Than, this sum is divided by the sum of
+ # of all group weights for normalization purposes. Note that the sum with which
+ # is divide equals the kappa of the simple-weighted average ÁTT.
+ agg_gte_results <- round(sum(gte_results$coef * weights$probs) / sum(weights$probs), 4)
     
-    # An empty data frame is created, in which the group-specific ATE are saved.
-    gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 2))
-    colnames(gte_results) <- c("time", "coef")
-    
-    # Than, the second step is to calculate the group-specific ATE by taking the 
-    # mean of all ATT(g,t) of a group g as above described. In each loop iteration,
-    # the group-specific ATE is calculated for another group.
-    for (i in seq_along(grouplist)) {
-      g <- grouplist[i]
-      gte_results[i, "time"] <- g
-      gte_results[i, "coef" ]  <- round(mean(gte_df[gte_df$group == g, "attgt"]), 4)
-    }
-    
-    # 2) Overall Agg. ATE
-    # The calculation of the overall ATE of the group-specific ATE follows the
-    # the same strategy of simple weighted average of ATT. Thus, the sum of
-    # weighted group-specific ATT is taken. Than, this sum is divided by the sum of
-    # of all group weights for normalization purposes. Note that the sum with which
-    # is divide equals the kappa of the simple-weighted average ÁTT.
-    agg_gte_results <- round(sum(gte_results$coef * weights$probs) / sum(weights$probs), 4)
-    
-    # This line saves the results.
-    results <- list(partial_att = gte_results, overall_att = agg_gte_results)
-    return(results)
-  }
+ # This line saves the results.
+ results <- list(partial_att = gte_results, overall_att = agg_gte_results)
+ return(results)
+}
 
 ## 3.3 Calendar Time Effects ----
-  if (method == "calendar_att") {
-    
-    # 1) Partially Agg. ATE
-    # Calendar time effects are of relevance if the question arises on how large 
-    # the ATE after a certain number of periods is (CS, 2021). 
-    # The calendar time effects are calculated by taking the sum of ATT(g,t) with 
-    # the corresponding weights by calendar time, e.g., by year 2006. The first 
-    # calendar time effect is calculated for the year in which the first group
-    # is treated.
-    
-    # Selecting the ATT(g,t) of each group in the post-treatment like in the
-    # other steps before.
-    aggte_ct <- attgt_probs_df[index_post,]
+if (method == "calendar_att") {
+ # 1) Partially Agg. ATE
+ # Calendar time effects are of relevance if the question arises on how large 
+ # the ATE after a certain number of periods is (CS, 2021). 
+ # The calendar time effects are calculated by taking the sum of ATT(g,t) with 
+ # the corresponding weights by calendar time, e.g., by year 2006. The first 
+ # calendar time effect is calculated for the year in which the first group
+ # is treated.
+   
+ # Selecting the ATT(g,t) of each group in the post-treatment like in the
+ # other steps before.
+ aggte_ct <- attgt_probs_df[index_post,]
 
-    # The calendar time effects are calculated by looping of all unique calendar 
-    # and, hence, the unique calendar times need to be determined. These are
-    # all years, which are in the post-treatment period. 
-    calendar_timelist <- unique(aggte_ct$year)
+ # The calendar time effects are calculated by looping of all unique calendar 
+ # and, hence, the unique calendar times need to be determined. These are
+ # all years, which are in the post-treatment period. 
+ calendar_timelist <- unique(aggte_ct$year)
     
-    # Than, an empty data frame is created, in which the calendar time effects are 
-    # going to be save.
-    cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 2))
-    colnames(cte_results) <- c("time", "coef")
-    
-    # In this loop the calendar effects for each calendar time are calculated.
-    for (i in seq_along(calendar_timelist)) {
-      # Selecting the post-treatment year for which the calendar time effects 
-      # is calculated in the current iteration.
-      calendar_time <- calendar_timelist[i]
-      df <- aggte_ct[aggte_ct$year == calendar_time,]
-      # Calculating the calendar time effects by weighting ATT(g,t) with the
-      # corresponding weights and divided by the sum of all used weights
-      group_prob <- df$probs / sum(df$probs)
-      cte_results[i, "time"] <- calendar_time
-      cte_results[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
-    }
-    
-    # 2) Overall Agg. ATT 
-    # The overall calendar time effects is calculated by taking the mean of all
-    # calendar time effects. 
-    agg_att_ct <- round(mean(cte_results$coef), 4)
-    
-    # Save final calendar time effects
-    results <- list(partial_att = cte_results, overall_att = agg_att_ct)
-    return(results)
-  }
+ # Than, an empty data frame is created, in which the calendar time effects are 
+ # going to be save.
+ cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 2))
+ colnames(cte_results) <- c("time", "coef")
+ 
+ # In this loop the calendar effects for each calendar time are calculated.
+ for (i in seq_along(calendar_timelist)) {
+  # Selecting the post-treatment year for which the calendar time effects 
+  # is calculated in the current iteration.
+  calendar_time <- calendar_timelist[i]
+  df <- aggte_ct[aggte_ct$year == calendar_time,]
+  # Calculating the calendar time effects by weighting ATT(g,t) with the
+  # corresponding weights and divided by the sum of all used weights
+  group_prob <- df$probs / sum(df$probs)
+  cte_results[i, "time"] <- calendar_time
+  cte_results[i, "coef"] <- round(sum(df$attgt * group_prob), 4)
+ }
 
+ # 2) Overall Agg. ATT
+ # The overall calendar time effects is calculated by taking the mean of all
+ # calendar time effects.
+ agg_att_ct <- round(mean(cte_results$coef), 4)
+   
+ # Save final calendar time effects
+ results <- list(partial_att = cte_results, overall_att = agg_att_ct)
+ return(results)
+}
 
 ## 3.4 Event Study Design ----
-   if (method %in% c("unbalanced_eventstudy", "balanced_eventstudy")) {
-      
-    # In this section the event study effects is calculated for the balanced and
-    # unbalanced event time. Therefore, the interest lays on the heterogeneity of 
-    # treatment effects with respect to exposure to the treatment. In the first 
-    # step, the event-time needs to be calculated by taking the difference 
-    # between year of the ATT(g,t) and the group of a ATT(g,t).  
-    attgt_et <- attgt_probs_df
-    attgt_et$eventtime <- attgt_et$year - attgt_et$group
-    
-    # Than all pre-treatment event times are exuded as the interest lays on the 
-    # exposure to the treatment.
-    attgt_et <- attgt_et[attgt_et$eventtime >= 0, ]
+if (method %in% c("unbalanced_eventstudy", "balanced_eventstudy")) {
+ # In this section the event study effects is calculated for the balanced and
+ # unbalanced event time. Therefore, the interest lays on the heterogeneity of 
+ # treatment effects with respect to exposure to the treatment. In the first 
+ # step, the event-time needs to be calculated by taking the difference 
+ # between year of the ATT(g,t) and the group of a ATT(g,t).  
+ attgt_et <- attgt_probs_df
+ attgt_et$eventtime <- attgt_et$year - attgt_et$group
+
+ # Than all pre-treatment event times are exuded as the interest lays on the 
+ # exposure to the treatment.
+ attgt_et <- attgt_et[attgt_et$eventtime >= 0, ]
 
 ### 3.4.1 Event Study Effect ----
-    if (method == "unbalanced_eventstudy") {
-      
-      # 1) Partial Agg. ATE
-      # The event study effects without balancing the event time measures the
-      # effect of a treatment e periods after a treatment. Therefore, the weighted
-      # sum of all group-time ATT of a event-time e is taken and divided by the 
-      # sum of all weights of groups in event-time e.
-      
-      # The calculation of the event study effect requires a variable with the 
-      # unique set of event-time. Than, the loop can be used to calculate the 
-      # event study effects for each event-time e.
-      eventime_timelist <- unique(attgt_et$eventtime)
-      
-      # Creating an empty dataset to safe the event study effects of each
-      # event-time e
-      et_results <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
-      colnames(et_results) <- c("time", "coef")
-      
-      # The loop to calculate the event effect effects
-      for (i in seq_along(eventime_timelist)) {
-        # Selecting the event-time e of the current iteration
-        eventime_time <- eventime_timelist[i]
-        df         <- attgt_et[attgt_et$eventtime == eventime_time,]
-        # Calculating the event study effect according to the aforementioned 
-        # description.
-        group_prob <- df$probs / sum(df$probs)
-        et_results[i, "time"]   <- eventime_time
-        et_results[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
-      }
-      
-      # 2) Overall Agg. ATE
-      # The overall event study effect is calculated by taking the mean of all
-      # event study effects time effects.
-      agg_et <- round(mean(et_results$coef), 4)
-      
-      # Save final calendar time effects
-      results <- list(partial_att = et_results, overall_att = agg_et)
-      return(results)
-    } # End of unbalanced event-study effects if-clause
+if (method == "unbalanced_eventstudy") {
+
+ # 1) Partial Agg. ATE
+ # The event study effects without balancing the event time measures the
+ # effect of a treatment e periods after a treatment. Therefore, the weighted
+ # sum of all group-time ATT of a event-time e is taken and divided by the 
+ # sum of all weights of groups in event-time e.
+
+ # The calculation of the event study effect requires a variable with the 
+ # unique set of event-time. Than, the loop can be used to calculate the 
+ # event study effects for each event-time e.
+ eventime_timelist <- unique(attgt_et$eventtime)
+
+ # Creating an empty dataset to safe the event study effects of each
+ # event-time e
+ et_results <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
+ colnames(et_results) <- c("time", "coef")
+ 
+ # The loop to calculate the event effect effects
+ for (i in seq_along(eventime_timelist)) {
+  # Selecting the event-time e of the current iteration
+  eventime_time <- eventime_timelist[i]
+  df <- attgt_et[attgt_et$eventtime == eventime_time,]
+  # Calculating the event study effect according to the aforementioned description.
+  group_prob <- df$probs / sum(df$probs)
+  et_results[i, "time"] <- eventime_time
+  et_results[i, "coef"] <- round(sum(df$attgt * group_prob), 4)
+ }
+ 
+ # 2) Overall Agg. ATE
+ # The overall event study effect is calculated by taking the mean of all
+ # event study effects time effects.
+ agg_et <- round(mean(et_results$coef), 4)
+
+ # Save final calendar time effects
+ results <- list(partial_att = et_results, overall_att = agg_et)
+ return(results)
+} # End of unbalanced event-study effects if-clause
 
 ## 3.4.2 Eventstudy with balanced group ----
-    if (method == "balanced_eventstudy" & !is.null(balanced)) {
-      
-      # 1) Partially Agg. ATT
-      # The event study effect with groups being balanced with respect to the
-      # event-time e condition the event study effect on a group being observed
-      # at least for a certain amount of time according to CS (2021). Thereby,
-      # the calculation of the "balanced event study effect" is identical to the 
-      # "unbalanced event study effect".
-      
-      # (A) First, the indicator on how many periods a group should have been 
-      # observed is re-defined as it is an argument of the function.
-      balance_groups <- balanced
-      
-      # (B) Secondly, all the groups, which were treated at least for a certain 
-      # amount of periods, must be determined.Therefore, the number of 
-      # post-treatment periods is calculated by iterating over the vector with 
-      # the unique treatment groups.
-      grouplist_et <- unique(attgt_et$group)
-      att_per_group <- sapply(grouplist_et, function(g){
-        # Create a subset of the ATT(g,t) with only group g being represented.
-        df <- attgt_et[attgt_et$group == g,]
-        # Than the number of post-treatment period is summed up.
-        n  <- nrow(df)
-        n
-      })
-      
-      # Create a data frame, which contains the information on the number
-      # of post-treatment periods.
-      att_per_group <- data.frame(grouplist_et, att_per_group)
-      colnames(att_per_group) <- c("eventtime", "abs_nr_att")
+if (method == "balanced_eventstudy" & !is.null(balanced)) {
 
-      # The loop determines whether a group was  exposed to the treatment for 
-      # the required length of "balanced_group". After the loop, groups_to_exclude 
-      # contains the groups, which were not observed for required treatment length.
-      groups_to_exclude <- c()
-      for ( i in seq_along(att_per_group$eventtime) ) {
-        if ( att_per_group[i, 2] < balance_groups + 1 ) {
-          groups_to_exclude[i] <- att_per_group[i, 1]
-        } else {
-          next
-        }
-      }
+ # 1) Partially Agg. ATT
+ # The event study effect with groups being balanced with respect to the
+ # event-time e condition the event study effect on a group being observed
+ # at least for a certain amount of time according to CS (2021). Thereby,
+ # the calculation of the "balanced event study effect" is identical to the 
+ # "unbalanced event study effect".
+
+ # (A) First, the indicator on how many periods a group should have been 
+ # observed is re-defined as it is an argument of the function.
+ balance_groups <- balanced
+ 
+ # (B) Secondly, all the groups, which were treated at least for a certain 
+ # amount of periods, must be determined.Therefore, the number of 
+ # post-treatment periods is calculated by iterating over the vector with 
+ # the unique treatment groups.
+ grouplist_et <- unique(attgt_et$group)
+ att_per_group <- sapply(grouplist_et, function(g){
+  # Create a subset of the ATT(g,t) with only group g being represented.
+  df <- attgt_et[attgt_et$group == g,]
+  # Than the number of post-treatment period is summed up.
+  n  <- nrow(df)
+  n
+ })
+
+ # Create a data frame, which contains the information on the number
+ # of post-treatment periods.
+ att_per_group <- data.frame(grouplist_et, att_per_group)
+ colnames(att_per_group) <- c("eventtime", "abs_nr_att")
+
+ # The loop determines whether a group was  exposed to the treatment for 
+ # the required length of "balanced_group". After the loop, groups_to_exclude 
+ # contains the groups, which were not observed for required treatment length.
+ groups_to_exclude <- c()
+ for (i in seq_along(att_per_group$eventtime)) {
+  if (att_per_group[i, 2] < balance_groups + 1) {
+   groups_to_exclude[i] <- att_per_group[i, 1]
+   } else {
+     next
+   }
+  }
+
+ # In the last step, the "balanced" data frame of ATT(g,t) is obtained by 
+ # excluding the determined groups in groups_to_exclude().
+ groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
+ attgt_et_bal <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
+
+ # (C) Now, the event study effect can be calculated in the same way as the 
+ # in the unbalanced event study effect section.
+ eventime_timelist <- unique(attgt_et_bal$eventtime)
+ att_et_bal <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
+ colnames(att_et_bal) <- c("time", "coef")
+
+ for (i in seq_along(eventime_timelist)) {
+  eventime_time <- eventime_timelist[i]
+  df <- attgt_et[attgt_et_bal$eventtime == eventime_time,]
+  group_prob <- df$probs / sum(df$probs)
+  att_et_bal[i, "time"]   <- eventime_time
+  att_et_bal[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
+ }  
+
+ # Only the event study effects, which lay in the minimum requirement
+ # of how long a group must have been observed. are shown.
+ et_bal_results <- att_et_bal[att_et_bal$time < balance_groups + 1,]
+
+ # 2) Overall Agg. ATT
+ # Calculate the aggregated event study effects by taking the mean of all
+ # event study effects in the different event-time.
+ agg_bal_et <- round(mean(et_bal_results$coef), 4)
       
-      # In the last step, the "balanced" data frame of ATT(g,t) is obtained by 
-      # excluding the determined groups in groups_to_exclude().
-      groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
-      attgt_et_bal <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
-      
-      # (C) Now, the event study effect can be calculated in the same way as the 
-      # in the unbalanced event study effect section.
-      eventime_timelist <- unique(attgt_et_bal$eventtime)
-      att_et_bal <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
-      colnames(att_et_bal) <- c("time", "coef")
-        
-      for (i in seq_along(eventime_timelist)) {
-        eventime_time <- eventime_timelist[i]
-        df         <- attgt_et[attgt_et_bal$eventtime == eventime_time,]
-        group_prob <- df$probs / sum(df$probs)
-        att_et_bal[i, "time"]   <- eventime_time
-        att_et_bal[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
-      }  
-      
-      # Only the event study effects, which lay in the minimum requirement
-      # of how long a group must have been observed. are shown.
-      et_bal_results <- att_et_bal[att_et_bal$time < balance_groups + 1,]
-      
-      # 2) Overall Agg. ATT
-      # Calculate the aggregated event study effects by taking the mean of all
-      # event study effects in the different event-time.
-      agg_bal_et <- round(mean(et_bal_results$coef), 4)
-      
-      # Save results on balanced event study effects
-      results <- list(partial_att = et_bal_results, overall_att = agg_bal_et)
-      return(results)
-    } 
-  } 
+ # Save results on balanced event study effects
+ results <- list(partial_att = et_bal_results, overall_att = agg_bal_et)
+ return(results)
+} 
+} 
 }
 ```
 
