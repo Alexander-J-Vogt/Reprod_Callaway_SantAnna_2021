@@ -171,8 +171,10 @@ calculating_agg_att <- function(data,
       # (D) The functions for calculating the conditional and unconditional ATT(g,t)'s,
       # need data in wide format in which the outcome variable is separately available as
       # outcome in the pre- and post-treatment period. Thus, rows of the wide dataset 
-      # is equal to the number of unique observations/id-variable. (The code is
-      # an implementation of BMisc::panel2cs2. s.h. Callaway (2024))
+      # is equal to the number of unique observations/id-variable (The code is
+      # an implementation of BMisc::panel2cs2. s.h. Callaway (2024)). The change
+      # to the wide format also allows later to have clustered standard errors,
+      # when the standard errors are calculated.
       data_wide <- arrange(data_sel, id, year)
       data_wide$out_post <- data_wide$outcome
       data_wide$out_pre <- shift(data_wide$outcome, 1)
@@ -598,7 +600,7 @@ calculate_att_se <- function(data = qwi,
   }
   
   # First, the lists, which contain the ATT must be collapsed and are converted 
-  # into a data frame . 
+  # into a data frame. 
   b_res_partial <- map_dfr(b_res_partial, as.data.frame)
   b_res_overall <- unlist(b_res_overall)
   
@@ -633,10 +635,12 @@ calculate_att_se <- function(data = qwi,
 
 ```{r include=FALSE}
 calculate_various_specifications <-  function(data) {
-                
+  # Vector of every method for calculate_att_se           
   method_opt <- c("simple_att", "group_specific_att", "calendar_att", 
                   "unbalanced_eventstudy", "balanced_eventstudy")
-
+  
+  # Loop to calculate all different partial and overall ATT for the conditional
+  # and unconditional PTA
   for ( m in method_opt ) {
     paste0("Method: ", m)
     assign(paste0("c_est_", m), calculate_att_se(data = data,
@@ -666,7 +670,8 @@ calculate_various_specifications <-  function(data) {
                                                     balanced = 1))
     
   }
-    
+  
+   # Calculation of the TWFE under conditional PTA
    c_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated + 
                     lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + 
                     leduc, data = data, index = c("county_id", "date_y"), model = "within") 
@@ -677,6 +682,7 @@ calculate_various_specifications <-  function(data) {
    c_twfe_df[1,2] <- round(lmtest::coeftest(c_twfe, vcov = vcovHC)[2,2], 4)
    
     
+   # Calculation of the TWFE under unconditional PTA
    u_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated 
                        , data = data, index = c("county_id", "date_y"), model = "within")
    
@@ -685,7 +691,7 @@ calculate_various_specifications <-  function(data) {
    u_twfe_df[1,1] <- round(coef(u_twfe)[2], 4)
    u_twfe_df[1,2] <- round(lmtest::coeftest(u_twfe, vcov = vcovHC)[2,2], 4)
 
-   
+   # Saving the values in a list
    cond <- list(twfe = c_twfe_df, 
                 simple = c_est_simple_att, 
                 group = c_est_group_specific_att,
@@ -707,10 +713,12 @@ calculate_various_specifications <-  function(data) {
 
 ## Calculating all methods except balanced eventstudy
 calculate_various_specifications_west <-function(data) {
-  
+  # Vector of every method for calculate_att_se
   method_opt <- c("simple_att", "group_specific_att", "calendar_att", 
                   "unbalanced_eventstudy")
   
+  # Loop to calculate all different partial and overall ATT for the conditional
+  # and unconditional PTA
   for ( m in method_opt ) {
     paste0("Method: ", m)
     assign(paste0("c_est_", m), calculate_att_se(data = data,
@@ -741,6 +749,7 @@ calculate_various_specifications_west <-function(data) {
     
   }
   
+  # Calculation of the TWFE under conditional PTA
   c_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated + 
                   lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + 
                   leduc, data = data, index = c("county_id", "date_y"), model = "within") 
@@ -750,7 +759,7 @@ calculate_various_specifications_west <-function(data) {
   c_twfe_df[1,1] <- round(coef(c_twfe)[2], 4)
   c_twfe_df[1,2] <- round(lmtest::coeftest(c_twfe, vcov = vcovHC)[2,2], 4)
   
-  
+  # Calculation of the TWFE under unconditional PTA  
   u_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated 
                 , data = data, index = c("county_id", "date_y"), model = "within")
   
@@ -759,7 +768,7 @@ calculate_various_specifications_west <-function(data) {
   u_twfe_df[1,1] <- round(coef(u_twfe)[2], 4)
   u_twfe_df[1,2] <- round(lmtest::coeftest(u_twfe, vcov = vcovHC)[2,2], 4)
   
-  
+  # Saving the values in a list
   cond <- list(twfe = c_twfe_df, 
                simple = c_est_simple_att, 
                group = c_est_group_specific_att,
