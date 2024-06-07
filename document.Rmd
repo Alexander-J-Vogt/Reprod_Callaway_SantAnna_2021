@@ -206,14 +206,14 @@ calculating_agg_att <- function(data,
       # The second option is to calculate the ATT(g,t) with the PTA holding conditional
       # to pre-treatment covariates following the non-parametric identified doubly-robust (DR)
       # DiD estimation of Sant’Anna & Zhao (2020). The DR DiD combines the outcome regression 
-      # estimator (OR) of Heckman et al. (1997) and inverse probability weighting 
-      # estimator (IPW) of Abadie (2005). Thereby, Sant'Anna & Zhao (2022) stress
-      # out that the OR relies on a correctly modeled outcome evolution of the 
-      # control group conditional on covariates, while the IPW only relies on the
-      # correctly modeled probability of belonging to group g. The DR DiD estimator 
-      # is a combination of the OR and IPW and thus has the advantage 
-      # that it yields a correct estimator, if either the outcome evolution or 
-      # the probabilities of belonging to a group is correctly estimated.
+      # estimator (OR) and inverse probability weighting estimator (IPW). 
+      # Thereby, Sant'Anna & Zhao (2022) stress out that the OR relies on a 
+      # correctly modeled outcome evolution of the control group conditional on
+      # covariates, while the IPW only relies on the correctly modeled probability
+      # of belonging to group g. The DR DiD estimator is a combination of the OR
+      # and IPW and thus has the advantage that it yields a correct estimator, 
+      # if either the outcome evolution or the probabilities of belonging to a 
+      # group is correctly estimated.
       att <- DRDID::drdid_panel(y1 = data_wide$out_post,
                                 y0 = data_wide$out_pre,
                                 D  = data_wide$treat,
