@@ -571,15 +571,10 @@ calculate_att_se <- function(data = qwi,
   
   # This subset is then used to calculate the partial and overall ATE of the
   # method of choice for a loop iteration
-  b_est <- calculating_agg_att(data = b_data,
-                               year_input = year_input,
-                               group_input = group_input,
-                               outcome_input = outcome_input,
-                               id_input = "id",
-                               treatment = treated,
-                               formula = formula,
-                               unconditional_ind = unconditional_ind,
-                               method = method,
+  b_est <- calculating_agg_att(data = b_data, year_input = year_input, 
+                               group_input = group_input, outcome_input = outcome_input,
+                               id_input = "id", treatment = treated, formula = formula,
+                               unconditional_ind = unconditional_ind, method = method,
                                balanced = balanced)
   
   # The results of the ATE in the current loop-iteration are saved here, and these
@@ -601,15 +596,10 @@ calculate_att_se <- function(data = qwi,
  
  # After calculating the standard errors, the partial and overall Agg. ATT are
  # calculated for the full sample.
- est <- calculating_agg_att(data = data,
-                            year_input = year_input,
-                            group_input = group_input,
-                            outcome_input = outcome_input,
-                            id_input = id_input,
-                            treatment = treated,
-                            formula = spec_formula,
-                            unconditional_ind = unconditional_ind,
-                            method = method,
+ est <- calculating_agg_att(data = data, year_input = year_input, group_input = group_input,
+                            outcome_input = outcome_input, id_input = id_input,
+                            treatment = treated, formula = spec_formula,
+                            unconditional_ind = unconditional_ind, method = method,
                             balanced = balanced)
   
  # The results of the partial and overall Agg. ATT and the corresponding
@@ -793,7 +783,7 @@ In Table (1), the TWFE effect has a positive but insignificant estimator. A comp
 
 In table (2), the unconditional ATT for the full sample can be observed, Thereby, it is important to recognize that the effect sizes are similar for every treatment effects of table (1) regardless of the method. This should not be the case because somebody would expect that the ATT's to lay higher, due to the uncontrolled country-specific trends. One reason for the difference could be the data itself, as CS (2021) give little detail on how the data was matched and which variables exactly were used. Thus, the collection of the dataset and cleaning of the dataset could be the core reason for this result.
 
-In the next step, the regional effects are discussed on how they differ to the results of the full sample. The discussion on the Western region is excluded because states of this region only increased in the minimum wage the year 2007. Therefore, the effects for each aggregation version is the same as there is no variation in treatment timing.
+In the next step, the regional effects of the conditional ATE are discussed on how they differ to the results of the full sample. The discussion on the Western region is excluded because states of this region only increased in the minimum wage the year 2007. Therefore, the effects for each aggregation version is the same as there is no variation in treatment timing.
 
 In table (3), the results on the Midwest region can be interpreted and also here the great similarity between the ATT with conditional and unconditional PTA can be observed. The group-specific effects of the Midwest region for the group 2004 and 2006 are nearly only half the magnitude as in the full sample, while the group 2007 has a double as large estimator. The calendar time effects are comparable to the one in the full sample. The event study effects are showing a different pattern compared to the full sample. The event study effects for balanced and unbalanced data are increasing in magnitude more slowly in the Midwest region, which maybe lets somebody conclude that this region may have a smaller problem with teen employment than other regions.
 
