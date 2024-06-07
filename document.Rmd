@@ -91,14 +91,6 @@ calculating_agg_att <- function(data,
   unconditional <- unconditional_ind
   covariate_formula <- formula
   
-  # data_original <- data_original |>
-  #   rename(year    = date_y, #!!sym(year_input),
-  #          group   = group, #!!sym(group_input),
-  #          outcome = lnEmp, #!!sym(outcome_input),
-  #          id      = county_id# !!sym(id_input)
-  #   )
-  #   unconditional <- FALSE
-  #   covariate_formula <- ~ -1 + lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + leduc
   # Determining the unique time periods, groups and the number of unique values 
   # of the id-variable . Thereby, the timelist is a tx1 vector and grouplist 
   # a gx1 vector.
