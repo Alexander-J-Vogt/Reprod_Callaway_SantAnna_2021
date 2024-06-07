@@ -328,27 +328,27 @@ if (method == "calendar_att") {
  # 1) Partially Agg. ATE
  # Calendar time effects are of relevance if the question arises on how large
  # the ATE after a certain number of periods is (CS, 2021). The calendar time 
- # effects are calculated by taking the sum of ATT(g,t) of one year with the 
- # corresponding weights of each group. This is done for each post-treatment period.
+ # effects are calculated by taking the sum of all ATT(g,t) of one year with the 
+ # corresponding weights of each group.
    
  # Selecting the ATT(g,t) of each group in the post-treatment.
  aggte_ct <- attgt_probs_df[index_post,]
 
- # The calendar time effects are calculated by looping over all unique calendar
- # times and, hence, the unique calendar times need to be determined.
+ # The calendar time effects are calculated by looping over all unique post-treatment
+ # periods and, hence, these unique periods need to be determined.
  calendar_timelist <- unique(aggte_ct$year)
     
  # Than, an empty data frame is created, in which the calendar time effects are save.
  cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 2))
  colnames(cte_results) <- c("time", "coef")
  
- # In this loop, the calendar effects for each calendar time are calculated.
+ # In this loop, the calendar effects for each post-treatment period is calculated.
  for (i in seq_along(calendar_timelist)) {
-  # First, all ATT(g,t) of the current calendar-time-iteration is selected 
+  # First, all ATT(g,t) of the current period-iteration is selected 
   calendar_time <- calendar_timelist[i]
   df <- aggte_ct[aggte_ct$year == calendar_time,]
-  # Calculating the calendar time effects by weighting ATT(g,t) with the
-  # corresponding weights and divide it by the sum of all used weights
+  # The calendar time effects are calculated by weighting ATT(g,t) with the
+  # corresponding weights and divide it by the sum of all used weights in this period.
   group_prob <- df$probs / sum(df$probs)
   cte_results[i, "time"] <- calendar_time
   cte_results[i, "coef"] <- round(sum(df$attgt * group_prob), 4)
