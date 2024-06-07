@@ -28,24 +28,20 @@ The problems associated with the dynamic TWFE have been extensively discussed in
 The first problem is described by Goodman-Bacon (2021) and is related to the composition of weights, because they depend on the squared sub-sample size and the sub-sample variance. Consequently, the so-called variance-weights are determined by the distance of the treatment timing to the middle of the time window, the distance in time between two treatments and the size of the time window. Therefore, the variance-weights can change significantly if one of these factors changes and as a result the magnitude of the coefficient is sensitive to changes of the time window.
 The second problem is the so-called “negative weight problem”, which is discussed by Chaisemartin & D’Haultfoeuille (2020). This problem arises in the case of multiple periods and multiple groups when an “already-treated” group is used as a control group in one of the dynamic TWFE estimators. For a better understanding, recall the aforementioned example on the composition of the dynamic TWFE estimator. In this example, the “not-yet-treated” and “never-treated” group were used as a control group for the TWFE-DiD-estimator, which are both valid control groups for the DiD design as both groups resemble a theoretical potential outcome of an untreated group (Callaway, 2023a). On the otherside, the “already-treated” group is not a valid representation of the theoretical potential outcome of an untreated group since this group received a treatment at an earlier time point (Callaway, 2023a). Now, if the “already-treated” group has dynamic treatment effects, i.e., the treatment effects do not stay constant over the post-treatment periods, then the sub-DiD estimator has negative weights attached (Callaway, 2023a). Thus, the dynamic TWFE coefficient is biased and does not allow a reliable causal interpretation of the treatment (Callaway, 2023a).
 
-Overall, it can be concluded that the dynamic TWFE regression leads to biased estimators for each event time in the case of dynamic heterogenous effects. Additionally, Callaway (2023b) is able to show in with simulated data that the dynamic TWFE-estimator for each event-time can be even biased with homogenous treatment effects, which can be explained by the sensitive variance-weights of Goodman-Bacon (2021). CS (2021) can solve both of these problems by their two-step procedure to calculate the aggregated ATT by first calculating the $ATT(g,t)$ with clearly defined control groups (i.e., “not-yet-treated” and “never-treated” groups) and then using the probability of belonging to a group to aggregate the $ATT(g,t)$. Therefore, the “negative weights problem” is avoided by using a transparent weighting process and the use of well-defined control groups.
-
-
-
+Overall, it can be concluded that the dynamic TWFE regression leads to biased estimators for each event time in the case of dynamic heterogeneous effects. Additionally, Callaway (2023b) is able to show in with simulated data that the dynamic TWFE-estimator for each event-time can be even biased with homogeneous treatment effects, which can be explained by the sensitive variance-weights of Goodman-Bacon (2021). CS (2021) can solve both of these problems by their two-step procedure to calculate the aggregated ATT by first calculating the $ATT(g,t)$ with clearly defined control groups (i.e., “not-yet-treated” and “never-treated” groups) and then using the probability of belonging to a group to aggregate the $ATT(g,t)$. Therefore, the “negative weights problem” is avoided by using a transparent weighting process and the use of well-defined control groups.
 
 # 3. Code-Implementation of the Methodology
 
 ```{r message=FALSE, warning=FALSE}
-# In this line Remove existing environment in order to make sure that 
+# Cleaning the working environment
 rm(list = ls(all = TRUE))
 
-# set seed for replication
+# Set seed for replication purposes
 set.seed(1234)
 
-# libraries
+# used libraries
 library(tidyverse)
 library(data.table)
-# library(haven)
 library(DRDID)
 library(plm)
 library(lmtest)
@@ -60,7 +56,6 @@ The function `calculating_agg_att` is the main function of this term paper and n
 
 ```{r}
 
-# Unconditional DiD-estimator  -----
 unconditional_att <- function(outcome_post, outcome_pre, treatment) {
 # The Unconditional_att-function calculates the unconditional ATT in the 
 # calculating_agg_att-function by first estimating the treatment effect for the 
@@ -90,39 +85,38 @@ calculating_agg_att <- function(data,
                                 balanced = NULL
                                 ) {
   
-  # 1. Standardize variables & basic calculations
-  # In this section, the arguments given to the function are re-defined in order
-  # to allow a universal usage of the function and the basic variables needed for 
-  # the further procedure are defined.
-  
-  # The variables are re-defined and standardized in order to guarantee universal
-  # application of the function.
-  data_original <- data
-  data_original <- data_original |>
-    rename(year    = !!sym(year_input),
-           group   = !!sym(group_input),
-           outcome = !!sym(outcome_input),
-           id      = !!sym(id_input)
-           )
-  unconditional <- unconditional_ind
-  covariate_formula <- formula
-  
-  # Determining the unique time periods, groups and the number of unique values 
-  # of the id-variable . Thereby, the timelist is a tx1 vector and grouplist 
-  # a gx1 vector.
-  timelist <- unique(data_original$year)
-  grouplist <- sort(unique(data_original$group))
-  grouplist <- grouplist[grouplist != 0]
-  n_unique <- length(unique(data_original$id))
-  
-  # Here, an empty data frame is setup for later saving the ATT(g,t) 
-  num_of_cases <- (length(timelist) - 1) * length(grouplist)
-  attgt.df <- as.data.frame(matrix(NA, nrow = num_of_cases, ncol = 3))
-  colnames(attgt.df) <- c("attgt", "group", "year")
-  # att.gt.ls <- list()
-  
-  # The number-variable is needed for the Loop, which calculates the different
-  # ATT(g,t) and is needed for saving the ATT(g,t) in the right row of the
+# 1. Standardize variables & basic calculations
+# In this section, the arguments given to the function are re-defined in order
+# to allow a universal usage of the function and the basic variables needed for 
+# the further procedure are defined.
+
+# The variables are re-defined and standardized in order to guarantee universal
+# application of the function.
+data_original <- data
+data_original <- data_original |>
+  rename(year = !!sym(year_input),
+         group = !!sym(group_input),
+         outcome = !!sym(outcome_input),
+         id = !!sym(id_input)
+         )
+unconditional <- unconditional_ind
+covariate_formula <- formula
+
+# Determining the unique time periods, groups and the number of unique values 
+# of the id-variable . Thereby, the timelist is a tx1 vector and grouplist 
+# a gx1 vector.
+timelist <- unique(data_original$year)
+grouplist <- sort(unique(data_original$group))
+grouplist <- grouplist[grouplist != 0]
+n_unique <- length(unique(data_original$id))
+
+# Here, an empty data frame is setup for later saving the ATT(g,t) 
+num_of_cases <- (length(timelist) - 1) * length(grouplist)
+attgt.df <- as.data.frame(matrix(NA, nrow = num_of_cases, ncol = 3))
+colnames(attgt.df) <- c("attgt", "group", "year")
+
+# The number-variable is needed for the Loop, which calculates the different
+# ATT(g,t) and is needed for saving the ATT(g,t) in the right row of the
   # data frame.
   number <- 1
   
@@ -551,94 +545,94 @@ calculate_att_se <- function(data = qwi,
                              method = "group_att",
                              balanced = FALSE) {
   
-  # The data is re-defined and the id_input variable name is changed to "id"
-  data_for_b <- data |>
-    rename(id = !!sym(id_input)) |>
-    as.data.frame()
+ # The data is re-defined and the id_input variable name is changed to "id"
+ data_for_b <- data |>
+  rename(id = !!sym(id_input)) |>
+  as.data.frame()
+
+ # The number of bootstrap-iteration is determined here. The larger the number
+ # the more the standard errors converge to their population equivalent.
+ iter <- 10
+   
+ # Creating the list for the distribution of the partial and overall ATT
+ b_res_overall <- list()
+ b_res_partial <- list()
   
-  # The number of bootstrap-iteration is determined here. The larger the number
-  # the more the standard errors converge to their population equivalent.
-  iter <- 10
+ # This loop is the implementation of the multiplier bootstrap. The core
+ # difference to the standard bootstrapping is that there is no re-sampling of 
+ # observations. Instead only a fraction of the overall total sample size is 
+ # used for calculating the different ATE.
+ for (i in 1:iter) {
   
-  # Creating the list for the distribution of the partial and overall ATT
-  b_res_overall <- list()
-  b_res_partial <- list()
+  # The selection of a subset of the total sample is determined by the 
+  # Bernoulli Variates following the proposed Algorithm of CS (2021). Thereby, 
+  # a binomial distribution is created for each iteration and is saved in 
+  # vector "bernoulli_variates". The vector has the same length as the unique 
+  # observation of the dataset. The probability used for the binomial 
+  # distribution is the following term:
+  kappa <- (sqrt(5) + 1) / 2
+  p <- kappa / sqrt(5)
+  n_row <- length(data_for_b$id)
+  # Creating the binomial distribution vector.
+  bernoulli_variates <- rbinom(n_row, 1, p)
   
-  # This loop is the implementation of the multiplier bootstrap. The core
-  # difference to the standard bootstrapping is that there is no re-sampling of 
-  # observations. Instead only a fraction of the overall total sample size is 
-  # used for calculating the different ATE.
-  for (i in 1:iter) {
+  # In these three lines the subset of the total sample is drawn based on the
+  # Bernoulli Variates. Additionally, it is to mention that the wide format 
+  # of the data allows to estimate  the cluster standard errors on the unit-level.
+  county <- unique(data_for_b$id)
+  county <- county[bernoulli_variates == 1]
+  b_data <- data_for_b |> filter(id %in% county)
   
-    # The selection of a subset of the total sample is determined by the 
-    # Bernoulli Variates following the proposed Algorithm of CS (2021). Thereby, 
-    # a binomial distribution is created for each iteration and is saved in 
-    # vector "bernoulli_variates". The vector has the same length as the unique 
-    # observation of the dataset. The probability used for the binomial 
-    # distribution is the following term:
-    kappa <- (sqrt(5) + 1) / 2
-    p <- kappa / sqrt(5)
-    n_row <- length(data_for_b$id)
-    # Creating the binomial distribution vector.
-    bernoulli_variates <- rbinom(n_row, 1, p)
-    
-    # In these three lines the subset of the total sample is drawn based on the
-    # Bernoulli Variates. Additionally, it is to mention that the wide format 
-    # of the data allows to estimate  the cluster standard errors on the unit-level.
-    county <- unique(data_for_b$id)
-    county <- county[bernoulli_variates == 1]
-    b_data <- data_for_b |> filter(id %in% county)
-    
-    # This subset is then used to calculate the partial and overall ATE of the 
-    # method of choice for a loop iteration
-    b_est <- calculating_agg_att(data = b_data,
-                                 year_input = year_input,
-                                 group_input = group_input,
-                                 outcome_input = outcome_input,
-                                 id_input = "id",
-                                 treatment = treated,
-                                 formula = formula,
-                                 unconditional_ind = unconditional_ind,
-                                 method = method,
-                                 balanced = balanced)
-    
-    # The results of the ATE in the current loop-iteration are saved here, and these
-    # variables contain the distribution of every partial and overall ATE after 
-    # the loop has come to its end.
-    if (method != "simple_att")  b_res_partial[[i]] <- t(as.matrix(b_est$partial_att$coef))
-    b_res_overall[[i]] <- round(b_est$overall_att, 4)
-  }
+  # This subset is then used to calculate the partial and overall ATE of the 
+  # method of choice for a loop iteration
+  b_est <- calculating_agg_att(data = b_data,
+                               year_input = year_input,
+                               group_input = group_input,
+                               outcome_input = outcome_input,
+                               id_input = "id",
+                               treatment = treated,
+                               formula = formula,
+                               unconditional_ind = unconditional_ind,
+                               method = method,
+                               balanced = balanced)
   
-  # First, the lists, which contain the ATT must be collapsed and are converted 
-  # into a data frame. 
-  b_res_partial <- map_dfr(b_res_partial, as.data.frame)
-  b_res_overall <- unlist(b_res_overall)
+  # The results of the ATE in the current loop-iteration are saved here, and these
+  # variables contain the distribution of every partial and overall ATE after 
+  # the loop has come to its end.
+  if (method != "simple_att")  b_res_partial[[i]] <- t(as.matrix(b_est$partial_att$coef))
+   b_res_overall[[i]] <- round(b_est$overall_att, 4)
+ }
+ 
+ # First, the lists, which contain the ATT must be collapsed and are converted 
+ # into a data frame. 
+ b_res_partial <- map_dfr(b_res_partial, as.data.frame)
+ b_res_overall <- unlist(b_res_overall)
+ 
+ # Then, the standard error of the partial and overall Agg. ATT are calculated 
+ # from their respective distribution of ATE.
+ se_partial <- apply(b_res_partial, 2, sd)
+ se_overall <- round(sd(b_res_overall), 4)
+ 
+ # After calculating the standard errors, the partial and overall Agg. ATT are 
+ # calculated for the full sample.
+ est <- calculating_agg_att(data = data,
+                            year_input = year_input,
+                            group_input = group_input,
+                            outcome_input = outcome_input,
+                            id_input = id_input,
+                            treatment = treated,
+                            formula = spec_formula,
+                            unconditional_ind = unconditional_ind,
+                            method = method,
+                            balanced = balanced)
   
-  # Then, the standard error of the partial and overall Agg. ATT are calculated 
-  # from their respective distribution of ATE.
-  se_partial <- apply(b_res_partial, 2, sd)
-  se_overall <- round(sd(b_res_overall), 4)
-  
-  # After calculating the standard errors, the partial and overall Agg. ATT are 
-  # calculated for the full sample.
-  est <- calculating_agg_att(data = data,
-                             year_input = year_input,
-                             group_input = group_input,
-                             outcome_input = outcome_input,
-                             id_input = id_input,
-                             treatment = treated,
-                             formula = spec_formula,
-                             unconditional_ind = unconditional_ind,
-                             method = method,
-                             balanced = balanced)
-  
-  # The results of the partial and overall Agg. ATT and the corresponding 
-  # standard errors are saved as the outcome of this function.
-  est$partial_att$b_se <- round(se_partial, 4)
-  est$overall_att <- cbind(est$overall_att, se_overall)
-  colnames(est$overall_att) <- c("coef", "b_se")
-  
-  return(est)
+ # The results of the partial and overall Agg. ATT and the corresponding 
+ # standard errors are saved as the outcome of this function.
+ est$partial_att$b_se <- round(se_partial, 4)
+ est$overall_att <- cbind(est$overall_att, se_overall)
+ colnames(est$overall_att) <- c("coef", "b_se")
+ 
+ return(est)
 }
   
 ```
@@ -872,7 +866,7 @@ print("(6) Southern Census Region: Unconditional ATE")
 print(results_south$c_results)
 ```
 
-#5. References
+# 5. References
 
 Barrett T, Dowle M, Srinivasan A, Gorecki J, Chirico M, Hocking T (2024). data.table: Extension of 'data.frame'. R package version 1.15.99, https://Rdatatable.gitlab.io/data.table, https://github.com/Rdatatable/data.table, https://r-datatable.com.
 
