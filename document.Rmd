@@ -329,7 +329,8 @@ if (method == "calendar_att") {
  # Calendar time effects are of relevance if the question arises on how large
  # the ATE after a certain number of periods is (CS, 2021). The calendar time 
  # effects are calculated by taking the sum of all ATT(g,t) of one year with the 
- # corresponding weights of each group.
+ # corresponding weights of each group and divide by the sum of the weights used
+ # in the this year.
    
  # Selecting the ATT(g,t) of each group in the post-treatment.
  aggte_ct <- attgt_probs_df[index_post,]
@@ -347,11 +348,12 @@ if (method == "calendar_att") {
   # First, the ATT(g,t) of the current period-iteration is selected. 
   calendar_time <- calendar_timelist[i]
   df <- aggte_ct[aggte_ct$year == calendar_time,]
-  # Secondly, the calendar time effects are calculated by weighting ATT(g,t) with the
-  # corresponding weights and divide it by the sum of all used weights in this period.
-  group_prob <- df$probs / sum(df$probs)
+  # Secondly, the calendar time effects are calculated by weighting the ATT(g,t) with the
+  # corresponding weights in one year and divide it by the sum of all used weights 
+  # in this period.
+  # group_prob <- df$probs / sum(df$probs)
   cte_results[i, "time"] <- calendar_time
-  cte_results[i, "coef"] <- round(sum(df$attgt * group_prob), 4)
+  cte_results[i, "coef"] <- round(sum(df$attgt * df$probs) / sum(df$probs), 4)
  }
 
  # 2) Overall Agg. ATT
@@ -401,9 +403,9 @@ if (method == "unbalanced_eventstudy") {
   eventime_time <- eventime_timelist[i]
   df <- attgt_et[attgt_et$eventtime == eventime_time,]
   # Calculating the event study effect according to the aforementioned description.
-  group_prob <- df$probs / sum(df$probs)
+  # group_prob <- df$probs / sum(df$probs)
   et_results[i, "time"] <- eventime_time
-  et_results[i, "coef"] <- round(sum(df$attgt * group_prob), 4)
+  et_results[i, "coef"] <- round(sum(df$attgt * df$probs) / sum(df$probs), 4)
  }
  
  # 2) Overall Agg. ATE
@@ -473,9 +475,9 @@ if (method == "balanced_eventstudy" & !is.null(balanced)) {
  for (i in seq_along(eventime_timelist)) {
   eventime_time <- eventime_timelist[i]
   df <- attgt_et[attgt_et_bal$eventtime == eventime_time,]
-  group_prob <- df$probs / sum(df$probs)
+  # group_prob <- df$probs / sum(df$probs)
   att_et_bal[i, "time"]   <- eventime_time
-  att_et_bal[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
+  att_et_bal[i, "coef"]   <- round(sum(df$attgt * df$probs) / sum(df$probs), 4)
  }  
 
  # Only these event study effects are shown, which lay in the minimum requirement
