@@ -574,7 +574,8 @@ calculate_att_se <- function(data = qwi,
     bernoulli_variates <- rbinom(n_row, 1, p)
     
     # In these three lines the subset of the total sample is drawn based on the
-    # Bernoulli Variates. 
+    # Bernoulli Variates. Additionally, it is to mention that the wide format 
+    # of the data allows to estimate  the cluster standard errors on the unit-level.
     county <- unique(data_for_b$id)
     county <- county[bernoulli_variates == 1]
     b_data <- data_for_b |> filter(id %in% county)
