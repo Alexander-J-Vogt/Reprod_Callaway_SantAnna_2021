@@ -6,6 +6,13 @@ output:
   word_document: default
 ---
 
+```{r include=FALSE}
+# Please set working directory gere
+setwd()
+```
+
+
+
 # 1. Introduction
 
 The Difference-in-Difference (DiD) design of Callaway & Sant’Anna (2021) (CS (2021)) estimates the average treatment effects (ATE) in a scenario of staggered adoption, i.e., treated units stay treated in post-treatment periods. The proposed strategy is able to estimate well-identified ATE with multiple periods, while overcoming the arising challenges from variation of treatment timing and dynamic heterogeneous effects. In the following, the methodology of the CS (2021) is introduced and the problems associated with the dynamic two-way fixed effects (TWFE) regression are explained.
@@ -16,13 +23,9 @@ Furthermore, CS (2021) introduce a parallel trend assumption (PTA) that holds af
 
 # 2. Unreliable Dynamic Two-Way Fixed Regressions
 
-In this section, the original idea of the dynamic TWFE with staggered adoption is repeated with an accompanying explanation and a regression of CS (2021). Furthermore, the challenges of the dynamic TWFE are discussed as well as how the DiD design of CS (2021) solves these challenges.
+In this section, the original idea of the dynamic TWFE with staggered adoption is repeated with an accompanying explanation. Furthermore, the challenges of the dynamic TWFE are discussed as well as how the DiD design of CS (2021) solves these challenges.
 
-The basic idea of a dynamic TWFE is to evaluate how the treatment effect of a policy evolves over several periods after its introduction, which represents the “treatment effect” term in the equation. The basic regression can be extended for testing the PTA by allowing to include pre-treatment periods and let them interact with the treatment dummy, like the term “Pre-Trend Effects”. Lastly, the TWFE are included in order to capture everything what is affecting each unit equally over time and all the time-invariant characteristics of each unit.
-
-$$
-Y_{i, t}=\underbrace{\alpha_t+\alpha_i}_{Time \ \&\ Unit \ FE}+ \underbrace{\sum_{e=-K}^{-2} \delta_e^{\text {anticip }} \cdot D_{i, t}^e}_{Pre-Trend \ \ Effects}+ \underbrace{\sum_{e=0}^L \beta_e \cdot D_{i, t}^e+v_{i, t}}_{Treatment \ Effects}
-$$
+The basic idea of a dynamic TWFE is to evaluate how the treatment effect of a policy evolves over several periods after its introduction. The basic regression can be extended for testing the PTA by allowing to include pre-treatment periods and let them interact with the treatment dummy. Lastly, the TWFE are included in order to capture everything what is affecting each unit equally over time and all the time-invariant characteristics of each unit.
 
 The problems associated with the dynamic TWFE have been extensively discussed in the recent research. Thereby, it has been shown that the dynamic TWFE regression with staggered adoption and multiple groups lead to potentially biased estimators according to Goodman-Bacon (2021) and Chaisemartin & D’Haultfoeuille (2020). These authors are arguing that each estimator of the dynamic TWFE for each period is a weighted average of different smaller ATE. These smaller ATE are the canonical DiD estimators between a treated and control group and referred to as “sub-DiD estimators”. To illustrate this finding, let’s assume the setup with multiple periods and variation in treatment timing with a “not-yet-treated”, “never-treated” group and the treated group in period t. The estimator of this treatment effect equals the weighted average of the sub-DiD estimators for the treated and not-yet-treated group and for the treated and never-treated group. This weighted average is associated with two problems that lead to a hard-to-interpret and biased estimator.
 
@@ -89,8 +92,7 @@ calculating_agg_att <- function(data,
   
 # 1. Standardize variables & basic variables
 # In this section, the arguments given to the function are re-defined in order
-# to allow a universal usage of the function and the basic variables needed for
-# the further procedure are defined.
+# to allow a universal usage of the function.
 data_original <- data
 data_original <- data_original |>
   rename(year = !!sym(year_input),
@@ -247,7 +249,7 @@ for (g in grouplist) {
  weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
  colnames(weights) <- c("group", "size", "probs")
   
- # b) The weights of each group are calculated in this loop,. Therefore, seq_along
+ # b) The weights of each group are calculated in this loop. seq_along
  # creates a number of vectors with length of grouplist, on which the loop iterates on.
  for (i in seq_along(grouplist)) {
   # Selecting the group for which the weight is calculated with the vector of unique groups
@@ -413,7 +415,7 @@ if (method == "unbalanced_eventstudy") {
  # event study effects time effects.
  agg_et <- round(mean(et_results$coef), 4)
 
- # Save final calendar time effects
+ # Save final event study effects
  results <- list(partial_att = et_results, overall_att = agg_et)
  return(results)
 }
@@ -782,12 +784,12 @@ results_midwest <- calculate_various_specifications(qwi_midwest)
 results_south   <- calculate_various_specifications(qwi_south)
 ```
 
-In table (2), the unconditional ATT for the full sample can be observed. Thereby, it is important to recognize that the effect sizes are similar for every treatment effects of table (1) regardless of the method. This should not be the case because one would expect the ATT's to lay higher, due to the uncontrolled country-specific trends. One reason for the difference could be the data itself, as CS (2021) give little detail on how the data was matched and which variables exactly were used. Thus, the collection of the dataset could be the core reason for this result.
-
 ```{r echo=FALSE, message=FALSE, paged.print=TRUE}
 print("(1) Full sample: Conditional ATE with Doubly-Robust estimators")
 print(results_total$c_results)
 ```
+
+In table (2), the unconditional ATT for the full sample can be observed. Thereby, it is important to recognize that the effect sizes are similar for every treatment effects of table (1) regardless of the method. This should not be the case because one would expect the ATT's to lay higher, due to the uncontrolled country-specific trends. One reason for the difference could be the data itself, as CS (2021) give little detail on how the data was matched and which variables exactly were used. Thus, the collection of the dataset could be the core reason for this result.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 print("(2) Full sample: Unconditional ATE")
