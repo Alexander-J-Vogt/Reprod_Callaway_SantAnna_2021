@@ -1,9 +1,9 @@
 ---
 title: "Difference-in-Differece with Various Treatment Timing and Multiple Period"
 output:
-  word_document: default
   html_document:
     df_print: paged
+  word_document: default
 ---
 
 # 1. Introduction
@@ -21,7 +21,7 @@ In this section, the original idea of the classical dynamic TWFE with staggered 
 The basic idea of a dynamic TWFE is to evaluate how the treatment effect of a policy evolves over several periods after its introduction, which represents the “treatment effect” term in the equation. The basic regression can be extended for testing the PTA by allowing to include pre-treatment periods and let them interact with the treatment dummy, like the term “Pre-Trend Effects”. Lastly, the TWFE are included in order to capture everything what is affecting each unit equally over time and all the time-invariant characteristics of each unit.
 
 $$
-Y_{i, t}=\underbrace{\alpha_t+\alpha_i}_{Time \ \&\ Unit \ FE}+ \underbrace{\sum_{e=-K}^{-2} \delta_e^{\text {anticip }} \cdot D_{i, t}^e}_{Pre-Rrend \ \ Effects}+ \underbrace{\sum_{e=0}^L \beta_e \cdot D_{i, t}^e+v_{i, t}}_{Treatment \ Effects}
+Y_{i, t}=\underbrace{\alpha_t+\alpha_i}_{Time \ \&\ Unit \ FE}+ \underbrace{\sum_{e=-K}^{-2} \delta_e^{\text {anticip }} \cdot D_{i, t}^e}_{Pre-Trend \ \ Effects}+ \underbrace{\sum_{e=0}^L \beta_e \cdot D_{i, t}^e+v_{i, t}}_{Treatment \ Effects}
 $$
 
 The problems associated with the dynamic TWFE have been extensively discussed in the recent research. Thereby, it has been shown that the dynamic TWFE regression with staggered adoption and multiple groups lead to potentially biased estimators according to Goodman-Bacon (2021) and Chaisemartin & D’Haultfoeuille (2020). These authors are arguing that each estimator of the dynamic TWFE for each period is a weighted average of different smaller ATE. These smaller ATE are the canonical DiD estimators between a treated and control group and referred to as “sub-DiD estimators”. To illustrate this finding, let’s assume the setup with multiple periods and variation in treatment timing with a “not-yet-treated”, “never-treated” group and the treated group in period t. The estimator of this treatment effect equals the weighted average of the sub-DiD estimators for the treated and not-yet-treated group and for the treated and never-treated group. This weighted average is associated with two problems that lead to a hard-to-interpret and biased estimator.
@@ -108,7 +108,7 @@ grouplist <- sort(unique(data_original$group))
 grouplist <- grouplist[grouplist != 0]
 n_unique <- length(unique(data_original$id))
 
-# Here, an empty data frame is setup for later saving the ATT(g,t) 
+# An empty data frame is setup for saving the ATT(g,t) 
 num_of_cases <- (length(timelist) - 1) * length(grouplist)
 attgt.df <- as.data.frame(matrix(NA, nrow = num_of_cases, ncol = 3))
 colnames(attgt.df) <- c("attgt", "group", "year")
@@ -119,119 +119,117 @@ colnames(attgt.df) <- c("attgt", "group", "year")
 number <- 1
 
 # 2. The double loop calculates the ATT(g,t), i.e., the disaggregated ATE.
-# Therefore, the first loop iterates over all different groups and the inner
+# The first loop iterates over all different groups and the inner
 # loop iterates over the available periods. Hence, the inner loop calculates
 # all the ATT(g,t) of one group.
- for (g in grouplist) {
-  for (t in timelist) {
+for (g in grouplist) {
+ for (t in timelist) {
 
-  # The data needs to be assigned for every iteration newly, in order to have
-  # the full dataset available as later in the code, the data gets subset.
-  data <- data_original
+ # The data needs to be assigned for every iteration newly, in order to have
+ # the full dataset available as later in the code, the data gets subset.
+ data <- data_original
 
-  # The ATT(g,t) is calculated for two periods for a treated group g and
-  # uses the "never-treated" units as control group. Therefore, (A) a
-  # pre-treatment period (or reference year) needs to be determinant and (B)
-  # the data needs to include two years and the treatment and control group.
+ # The ATT(g,t) is calculated for two periods of a treated group g and
+ # "never-treated" group. Therefore, (A) a pre-treatment period (or reference year) 
+ # needs to be determinant and (B) the data needs to include two years with a 
+ # treatment and control group.
 
-  # (A) The choice of reference year depends on whether the period of the current
-  # loop is laying in the pre- or post-treatment period. If the current period
-  # of the loop is laying in the post-treatment period, then the reference year
-  # is equal to the first pre-treatment period of a group. Otherwise, the 
-  # reference year is set equal to the current period of the loop iteration,
-  # which allows to estimate pseudo- ATT(g,t) like the pre-treatment
-  # estimators in the dynamic TWFE regression.
-  if (t >= g) {
-    reference_year <- g - 1
-  } else {
-    reference_year <- t
-  }
-
-  # (B) After having determined the reference year, the dataset can be subsetted
-  # given the reference year and the period after the current loop-period.
-  data <- subset(data, year %in% c(reference_year, t + 1))
-
-  # (C) In the next step, the two-year dataset gets further restricted by only
-  # including the treatment group of the current outer-loop and the
-  # "never-treated" group. Therefore, a index-indicator is needed to
-  # get a dataset, which only includes these two groups.
-  data$g_ <- ifelse(data$group == g, 1, 0)
-  data$c_ <- ifelse(data$group == 0, 1, 0)
-  index_gc <- (data$g_ == 1) | (data$c_ == 1)
-  # The actual subsetting of the restricted data.
-  data_sel <- data[index_gc,]
-
-  # Create treatment indicator based on the current group in the outer-loop.
-  data_sel <- data_sel |> mutate(treat = ifelse(group == g, 1, 0))
-
-  # This if-condition makes sure that the subsetted dataset includes exactely 
-  # two periods and jumps into the next loop if it is not the case.
-  if (length(unique(data$year)) == 2) {
-
-  # (D) The functions for calculating the conditional and unconditional ATT(g,t)'s,
-  # need data in wide format in which the outcome variable is separately available as
-  # outcome in the pre- and post-treatment period. Thus, rows of the wide dataset
-  # is equal to the number of unique observations/id-variable (The code is
-  # an implementation of BMisc::panel2cs2. s.h. Callaway (2024)). The change
-  # to the wide format also allows later to have clustered standard errors,
-  # when the standard errors are calculated.
-  data_wide <- arrange(data_sel, id, year)
-  data_wide$out_post <- data_wide$outcome
-  data_wide$out_pre <- shift(data_wide$outcome, 1)
-  data_wide$index <- ifelse(data_wide$year == reference_year, 1, 0)
-  data_wide <- data_wide[data_wide$index == 0,]
-  } else {
-    next
-  }
-
-  # (F) The final step is to compute the conditional and unconditional ATT(g,t)
-  # for group at period t. Thereby, the user of the function can simply choose
-  # between these two options by simply setting the argument "unconditional"
-  # respectively to the preferred estimator.
-
-  # Creating a matrix with all values of the pre-treatment covariates
-  covariates <- model.matrix(covariate_formula, data_wide)
-
-  if (unconditional == TRUE) {
-  # The first option is to calculate the ATT(g,t) with the PTA holding unconditionally.
-  # The estimation has already been  explained in detail in the beginning of this
-  # section and is a classical canonical DiD ATE.
-  att <- unconditional_att(outcome_post = data_wide$out_post,
-                           outcome_pre  = data_wide$out_pre,
-                           treatment    = data_wide$treat)
-        
-  } else {
-  # The second option is to calculate the ATT(g,t) with the PTA holding conditional
-  # to pre-treatment covariates following the non-parametric identified doubly-robust (DR)
-  # DiD estimation of Sant’Anna & Zhao (2020). The DR DiD combines the outcome regression
-  # estimator (OR) and inverse probability weighting estimator (IPW).
-  # Thereby, Sant'Anna & Zhao (2022) stress out that the OR relies on a 
-  # correctly modeled outcome evolution of the control group conditional on
-  # covariates, while the IPW only relies on the correctly modeled probability
-  # of belonging to group g. The DR DiD estimator is a combination of the OR
-  # and IPW and thus has the advantage that it yields a correct estimator,
-  # if either the outcome evolution or the probabilities of belonging to a 
-  # group is correctly estimated. This is implemented in the DRDID-package
-  # of Sant’Anna & Zhao (2020).
-  att <- DRDID::drdid_panel(y1 = data_wide$out_post,
-                            y0 = data_wide$out_pre,
-                            D  = data_wide$treat,
-                            covariates = covariates,
-                            inffunc    = FALSE,
-                            boot       = FALSE)
-  }
-
-  # All ATT(g,t) effects are saved in this data frame and is the final
-  # result of this loop.
-  attgt.df[number, 1] <- att$ATT
-  attgt.df[number, 2] <- g
-  attgt.df[number, 3] <- t + 1
-
-  # Number is increased after every iteration by one in order to save the
-  # values of the next iteration in the next row of the data frame.
-  number <- number + 1
-  }
+ # (A) The choice of reference year depends on whether the period of the current
+ # loop is laying in the pre- or post-treatment period. If the current period
+ # of the iteration is laying in the post-treatment period, then the reference year
+ # is equal to the first pre-treatment period of a group. Otherwise, the 
+ # reference year is set equal to the current period of the iteration,
+ # which allows to estimate pseudo-ATT(g,t) like the pre-treatment
+ # estimators in the dynamic TWFE regression.
+ if (t >= g) {
+   reference_year <- g - 1
+ } else {
+   reference_year <- t
  }
+
+ # (B) After having determined the reference year, the dataset can be subsetted
+ # given the reference year and the period after the current loop-period.
+ data <- subset(data, year %in% c(reference_year, t + 1))
+
+ # (C) The two-year dataset gets further restricted by only including the treatment
+ # group of the current iteration and the "never-treated" group. Thus, a 
+ # index-indicator is needed to get a dataset, which only includes these two groups.
+ data$g_ <- ifelse(data$group == g, 1, 0)
+ data$c_ <- ifelse(data$group == 0, 1, 0)
+ index_gc <- (data$g_ == 1) | (data$c_ == 1)
+ # The actual subsetting of the restricted data.
+ data_sel <- data[index_gc,]
+
+ # Create treatment indicator based on the current group in the outer-loop.
+ data_sel <- data_sel |> mutate(treat = ifelse(group == g, 1, 0))
+
+ # This if-condition makes sure that the subsetted dataset includes exactely 
+ # two periods and jumps into the next loop if it is not the case.
+ if (length(unique(data$year)) == 2) {
+
+ # (D) The functions for calculating the conditional and unconditional ATT(g,t)'s,
+ # need data in wide format in which the outcome variable is separately available as
+ # outcome in the pre- and post-treatment period. Thus, rows of the wide dataset
+ # is equal to the number of unique observations/id-variable (The code is
+ # an implementation of BMisc::panel2cs2. s.h. Callaway (2024)). The change
+ # to the wide format allows later to have clustered standard errors.
+ data_wide <- arrange(data_sel, id, year)
+ data_wide$out_post <- data_wide$outcome
+ data_wide$out_pre <- shift(data_wide$outcome, 1)
+ data_wide$index <- ifelse(data_wide$year == reference_year, 1, 0)
+ data_wide <- data_wide[data_wide$index == 0,]
+ } else {
+   next
+ }
+
+ # (F) The final step is to compute the conditional and unconditional ATT(g,t)
+ # for group at period t. Thereby, one can simply choose between these two
+ # options by simply setting the argument "unconditional" respectively to the 
+ # preferred estimator.
+
+ # Creating a matrix with all values of the pre-treatment covariates
+ covariates <- model.matrix(covariate_formula, data_wide)
+
+ if (unconditional == TRUE) {
+ # The first option is to calculate the ATT(g,t) with the PTA holding unconditionally.
+ # The estimation has already been explained in detail in the beginning of this
+ # section and is a classical canonical DiD ATE.
+ att <- unconditional_att(outcome_post = data_wide$out_post,
+                          outcome_pre  = data_wide$out_pre,
+                          treatment    = data_wide$treat)
+        
+ } else {
+ # The second option is to calculate the ATT(g,t) with the PTA holding conditional
+ # to pre-treatment covariates following the non-parametric identified doubly-robust (DR)
+ # DiD estimation of Sant’Anna & Zhao (2020). The DR DiD combines the outcome regression
+ # estimator (OR) and inverse probability weighting estimator (IPW).
+ # Thereby, Sant'Anna & Zhao (2022) stress out that the OR relies on a 
+ # correctly modeled outcome evolution of the control group conditional on
+ # covariates, while the IPW only relies on the correctly modeled probability
+ # of belonging to group g. The DR DiD estimator is a combination of the OR
+ # and IPW and thus has the advantage that it yields a correct estimator,
+ # if either the outcome evolution or the probabilities of belonging to a 
+ # group is correctly estimated. This is implemented in the DRDID-package
+ # of Sant’Anna & Zhao (2020).
+ att <- DRDID::drdid_panel(y1 = data_wide$out_post,
+                           y0 = data_wide$out_pre,
+                           D  = data_wide$treat,
+                           covariates = covariates,
+                           inffunc    = FALSE,
+                           boot       = FALSE)
+ }
+
+ # All ATT(g,t) effects are saved in this data frame and is the final
+ # result of this loop.
+ attgt.df[number, 1] <- att$ATT
+ attgt.df[number, 2] <- g
+ attgt.df[number, 3] <- t + 1
+
+ # Number is increased after every iteration by one in order to save the
+ # values of the next iteration in the next row of the data frame.
+ number <- number + 1
+ }
+}
   
 
 # 3. Aggregated ATT(g,t) according to CS (2021) ----
