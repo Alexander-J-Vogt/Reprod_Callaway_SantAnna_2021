@@ -528,7 +528,7 @@ calculating_agg_att <- function(data,
 
 ## 3.2 Calculation of the Standard Errors
 
-The function `calculate_att_se` is the final step of implementing the methodology of CS (2021). The outcome of the function is a list of the partially and overall Agg. ATE of a choosen method and the corresponding standard errors. The standard errors are calculated with the multiplier bootstrap procedure proposed in CS (2021). Thereby, it is important to mention that the multiplier bootstrap in CS (2021) is used to bootstrap the influence function of an ATE, while in this code implementation it used to calculate a distribution for each partial and overall ATT. This allows then to calculate the standard errors for each partial and overall ATT based on this distribution of ATT values.
+The function `calculate_att_se` is the final step of implementing the methodology of CS (2021). The outcome of the function is a list of the partially and overall Agg. ATE of a choosen method and the corresponding standard errors. The clustered standard errors are calculated with the multiplier bootstrap procedure proposed in CS (2021). Thereby, it is important to mention that the multiplier bootstrap in CS (2021) is used to bootstrap the influence function of an ATE, while in this code implementation it used to calculate a distribution for each partial and overall ATT. This allows then to calculate the standard errors, which are clustered on unit-level, for each partial and overall ATT based on this distribution of ATT values.
 
 ```{r}
 calculate_att_se <- function(data = qwi,
