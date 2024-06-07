@@ -293,21 +293,18 @@ if (method == "group_specific_att") {
  # 1) Partially Agg. ATE
  # The group-specific ATE is of relevance for researchers if they want to
  # evaluate the heterogeneity of a policy with respect to treatment timing.
- # Thereby, the group-specific ATE is calculated by taking the mean of all
- # ATT(g,t) of a group g according to Sant'Anna (2022).
  
  # The first step is to select the ATT(g,t) of each group in the post-treatment
- # period from the data frame with all ATT(g,t) and the corresponding weights
- # of each group.
+ # period from the data frame with all ATT(g,t).
  gte_df <- attgt_probs_df[index_post, ]
 
  # An empty data frame is created, in which the group-specific ATE are saved.
  gte_results <- data.frame(matrix(NA, nrow = length(grouplist), ncol = 2))
  colnames(gte_results) <- c("time", "coef")
  
- # Than, the second step is to calculate the group-specific ATE by taking the
- # mean of all ATT(g,t) of a group g as above described. In each loop iteration,
- # the group-specific ATE is calculated for another group.
+ # The second step is to calculate the group-specific ATE by taking the
+ # mean of all ATT(g,t) of a group g according to Sant'Anna (2022). In each 
+ # loop iteration, the group-specific ATE is calculated for another group.
  for (i in seq_along(grouplist)) {
   g <- grouplist[i]
   gte_results[i, "time"] <- g
@@ -315,11 +312,10 @@ if (method == "group_specific_att") {
  }
     
  # 2) Overall Agg. ATE
- # The calculation of the overall ATE of the group-specific ATE follows the
- # the same strategy of simple weighted average of ATT. Thus, the sum of
- # weighted group-specific ATT is taken. Than, this sum is divided by the sum of
- # of all group weights for normalization purposes. Note that the sum with which
- # is divide equals the kappa of the simple-weighted average ÁTT.
+ # The overall ATE of the group-specific ATE is calculated by taking the sum of
+ # the weighted partially Agg. ATE. This sum is divided by sum of all group
+ # weights in order to normalize the overall Agg. ATE. The last step is equal to the 
+ # kappa of the simple-weighted ATE.
  agg_gte_results <- round(sum(gte_results$coef * weights$probs) / sum(weights$probs), 4)
     
  # This line saves the results.
