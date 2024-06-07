@@ -25,10 +25,8 @@ set.seed(1234)
 # libraries
 library(tidyverse)
 library(data.table)
-library(haven)
+# library(haven)
 library(DRDID)
-# library(did)
-# library(BMisc)
 library(plm)
 library(lmtest)
 
@@ -59,8 +57,6 @@ unconditional_att <- function(outcome_post, outcome_pre, treatment) {
   results <- list()
   results <- list(ATT = att)
 }
-
-# spec_formula_log <- ~ -1 + lwhite_pop + lpoverty + lpop_1000s + lmedian_income_1000s + leduc
 
 calculating_agg_att <- function(data,
                                 year_input,
@@ -205,7 +201,8 @@ calculating_agg_att <- function(data,
       # of belonging to group g. The DR DiD estimator is a combination of the OR
       # and IPW and thus has the advantage that it yields a correct estimator, 
       # if either the outcome evolution or the probabilities of belonging to a 
-      # group is correctly estimated.
+      # group is correctly estimated. This is implented in the DRDID-package
+      # of Sant’Anna & Zhao (2020).
       att <- DRDID::drdid_panel(y1 = data_wide$out_post,
                                 y0 = data_wide$out_pre,
                                 D  = data_wide$treat,
@@ -627,6 +624,8 @@ calculate_att_se <- function(data = qwi,
 ```
 
 ```{r include=FALSE}
+
+# Code is left out as this is a function simply automize the calculation of all different methods and PTA for one dataset
 calculate_various_specifications <-  function(data) {
   # Vector of every method for calculate_att_se           
   method_opt <- c("simple_att", "group_specific_att", "calendar_att", 
@@ -852,3 +851,35 @@ print(results_south$c_results)
 print("(6) Southern Census Region: Unconditional ATE")
 print(results_south$c_results)
 ```
+
+#5. References
+
+Barrett T, Dowle M, Srinivasan A, Gorecki J, Chirico M, Hocking T (2024). data.table: Extension of 'data.frame'. R package version 1.15.99, https://Rdatatable.gitlab.io/data.table, https://github.com/Rdatatable/data.table, https://r-datatable.com.
+
+Callaway, B. (2023a). Introduction to DiD with Multiple Time Periods. Retrieved June 2, 2024, from https://bcallaway11.github.io/did/articles/multi-period-did.html
+
+Callaway, B. (2023b). Problems with two-way fixed-effects event-study regressions. Retrieved June 2, 2024, from https://bcallaway11.github.io/did/articles/TWFE.html
+
+Callaway, B. (2024). BMisc (1.4.6) [Software]. https://github.com/bcallaway11/BMisc
+
+Callaway, B., & Sant’Anna, P. H. (2021). Difference-in-Differences with multiple time periods. Journal of Econometrics, 225(2), 200–230.
+
+Croissant Y, Millo G (2008). “Panel Data Econometrics in R: The plm Package.” Journal of Statistical Software, 27(2), 1–43
+
+De Chaisemartin, C., & D’Haultfoeille, X. (2020). Two-Way fixed Effects Estimators with Heterogenous Treatment Effects. American Economic Association, 2964–2996.
+
+Goodman-Bacon, A. (2021). Difference-in-Differences with Variation in Treatment Timing. Journal of Econometrics, 254–277. Sant’Anna, B. C. a. P. H. (2022, July 19). Getting Started with the did Package. https://cran.r-project.org/web/packages/did/vignettes/did-basics.html 
+
+U.S. Census Bureau. (2001). County and City Data Book: 2000 [Dataset]. https://www.census.gov/library/publications/2001/compendia/ccdb00.html
+
+U.S. Census Bureau. (2024). Quarterly Workforce Indicator [Dataset]. https://lehd.ces.census.gov/data/
+
+Sant’Anna, P., & Zhao, J. (2020). Doubly Robust Difference-in-Difference Estimators. Journal of Econometrics, 101–122.
+
+Wickham H, Averick M, Bryan J, Chang W, McGowan LD, François R, Grolemund G, Hayes A, Henry L, Hester J, Kuhn M, Pedersen TL, Miller E, Bache SM, Müller K, Ooms J, Robinson D, Seidel DP, Spinu V, Takahashi K, Vaughan D, Wilke C, Woo K, Yutani H (2019). “Welcome to the tidyverse.” Journal of Open Source Software, 4(43), 1686.
+
+Zeileis A, Hothorn T (2002). “Diagnostic Checking in Regression Relationships.” R News, 2(3), 7–10. https://CRAN.R-project.org/doc/Rnews/.
+
+
+
+
