@@ -540,40 +540,45 @@ calculate_att_se <- function(data = qwi,
                              method = "group_att",
                              balanced = FALSE) {
   
-  # The
+  # The data is re-defined and the id_input variable name is changed to "id"
   data_for_b <- data |>
     rename(id = !!sym(id_input)) |>
     as.data.frame()
   
-  # The number of iteration is determined here.
+  # The number of bootstrap-iteration is determined here. The larger the number
+  # the more the standard errors converge to their population equivalent.
   iter <- 10
   
-  # 
+  # Creating the list for the distribution of the partial and overall ATT
   b_res_overall <- list()
   b_res_partial <- list()
   
   # This loop is the implementation of the multiplier bootstrap. The core
-  # difference to the standard bootstrapping is that there are us no resembling
-  # but only a fraction of the overall total population size is used for
-  # calculating the ATE.
+  # difference to the standard bootstrapping is that there is no re-sampling of 
+  # observations. Instead only a fraction of the overall total sample size is 
+  # used for calculating the different ATE.
   for (i in 1:iter) {
   
-    # The selection of the subset of the total sample is determined by the 
-    # Bernoulli Variates according to CS (2021), Thereby, a vector with values
-    # of the binomial distribution is created. The vector has the same length
-    # as the unique observation of the dataset. The probability for which 1 are
-    # drawn from is equal to the following term:
-    kappa <- ( sqrt(5) + 1 ) / 2
+    # The selection of a subset of the total sample is determined by the 
+    # Bernoulli Variates following the proposed Algorithm of CS (2021). Thereby, 
+    # a binomial distribution is created for each iteration and is saved in 
+    # vector "bernoulli_variates". The vector has the same length as the unique 
+    # observation of the dataset. The probability used for the binomial 
+    # distribution is the following term:
+    kappa <- (sqrt(5) + 1) / 2
     p <- kappa / sqrt(5)
     n_row <- length(data_for_b$id)
-    # Creation of the above mentioned vector.
+    # Creating the binomial distribution vector.
     bernoulli_variates <- rbinom(n_row, 1, p)
     
-    # In these three lines the subset of the total sample is drawn, which is then
-    # used to calculate the partial and overall ATE with the method of choice.
+    # In these three lines the subset of the total sample is drawn based on the
+    # Bernoulli Variates. 
     county <- unique(data_for_b$id)
     county <- county[bernoulli_variates == 1]
     b_data <- data_for_b |> filter(id %in% county)
+    
+    # This subset is then used to calculate the partial and overall ATE of the 
+    # method of choice for a loop iteration
     b_est <- calculating_agg_att(data = b_data,
                                  year_input = year_input,
                                  group_input = group_input,
@@ -585,21 +590,25 @@ calculate_att_se <- function(data = qwi,
                                  method = method,
                                  balanced = balanced)
     
-    # The results of the ATE with only a sub sample are saved here, and these
-    # variables contain the distribution of every partial and overall ATE.
+    # The results of the ATE in the current loop-iteration are saved here, and these
+    # variables contain the distribution of every partial and overall ATE after 
+    # the loop has come to its end.
     if (method != "simple_att")  b_res_partial[[i]] <- t(as.matrix(b_est$partial_att$coef))
     b_res_overall[[i]] <- round(b_est$overall_att, 4)
   }
   
-  # The standard error of the partial and overall ATE are calculated from their 
-  # respective distribution of ATE, but before the list of which contains the
-  # ATT must be collapsed in order to yield a data frame.
+  # First, the lists, which contain the ATT must be collapsed and are converted 
+  # into a data frame . 
   b_res_partial <- map_dfr(b_res_partial, as.data.frame)
-  se_partial <- apply(b_res_partial, 2, sd)
   b_res_overall <- unlist(b_res_overall)
+  
+  # Then, the standard error of the partial and overall Agg. ATT are calculated 
+  # from their respective distribution of ATE.
+  se_partial <- apply(b_res_partial, 2, sd)
   se_overall <- round(sd(b_res_overall), 4)
   
-  # Calculating the ATT with the full sample.
+  # After calculating the standard errors, the partial and overall Agg. ATT are 
+  # calculated for the full sample.
   est <- calculating_agg_att(data = data,
                              year_input = year_input,
                              group_input = group_input,
@@ -611,8 +620,8 @@ calculate_att_se <- function(data = qwi,
                              method = method,
                              balanced = balanced)
   
-  # The results of the ATT and the corresponding standard erros are
-  # saved as the outcome of this function.
+  # The results of the partial and overall Agg. ATT and the corresponding 
+  # standard errors are saved as the outcome of this function.
   est$partial_att$b_se <- round(se_partial, 4)
   est$overall_att <- cbind(est$overall_att, se_overall)
   colnames(est$overall_att) <- c("coef", "b_se")
