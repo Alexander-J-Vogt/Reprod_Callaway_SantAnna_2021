@@ -398,7 +398,7 @@ if (method == "unbalanced_eventstudy") {
  et_results <- as.data.frame(matrix(NA, nrow = length(eventime_timelist), ncol = 2))
  colnames(et_results) <- c("time", "coef")
  
- # This loop calculates the event-study effects for each even-time,
+ # This loop calculates the event-study effects for each even-time.
  for (i in seq_along(eventime_timelist)) {
   # Selecting the event-time e of the current iteration
   eventime_time <- eventime_timelist[i]
