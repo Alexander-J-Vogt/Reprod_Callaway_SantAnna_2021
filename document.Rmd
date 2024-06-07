@@ -53,7 +53,7 @@ library(lmtest)
 
 In the following, the two-step procedure of CS (2021) is implemented in form of two separate functions. In the first function `calculating_agg_att`, the partially and overall aggregated average treatment effects (Agg. ATE) are calculated by first calculating the group-time average treatment effects $ATT(g,t)$ and than using the aggregation methodology of CS (2021). The second function `calculate_att_se`, calculates the standard error of each aggregated average treatment effect with multiplier bootstrapping.
 
-The function `calculating_agg_att` is the main function of this term paper and needs several arguments in order to calculate Agg. ATT. The structure of the function is inspired by the code application of CS (2021).  The core argument is the method-argument, where the user can choose between the simple-weighted ATE, group-specific ATE, calendar time effects, and event-study effects with balanced and unbalanced event-time. The balanced-argument is needed for the case of performing the balanced event study and requires a number indicating for how many periods a group should have already been treated. Moreover, the unconditional_ind-argument decides on whether to use the unconditional parallel trend assumption (PTA) or the conditional PTA, the later one is the default option. If the conditional PTA is used, pre-treatment covariates should be given to the formula-argument. Additionally, the function requires a balanced panel data set and the name of the time indicator variable, the group-indicator variable, the outcome variable, the individual identification variable and the treatment-indicator variable.
+The function `calculating_agg_att` is the main function of this term paper and needs several arguments in order to calculate Agg. ATE. The structure of the function is inspired by the code application of CS (2021).  The core argument is the method-argument, where the user can choose between the simple-weighted ATE, group-specific ATE, calendar time effects, and event-study effects with balanced and unbalanced event-time. The balanced-argument is needed for the case of performing the balanced event study and requires a number indicating for how many periods a group should have already been treated. Moreover, the unconditional_ind-argument decides on whether to use the unconditional parallel trend assumption (PTA) or the conditional PTA, the later one is the default option. If the conditional PTA is used, pre-treatment covariates should be given to the formula-argument. Additionally, the function requires a balanced panel data set and the name of the time indicator variable, the group-indicator variable, the outcome variable, the individual identification variable and the treatment-indicator variable.
 
 ```{r}
 
@@ -240,18 +240,18 @@ for (g in grouplist) {
  
  # After having calculated the ATT(g,t) for each group in each period, the
  # weights for aggregating the different ATT(g,t) need to be calculated.
- # Therefore, the following loop determines the probability of belonging to a
- # treated group g.
+ # These weights are equal to the probability of belonging to a treated group and
+ # are calculated in the following steps.
  # a) Creating an empty dataset for saving the weights in it.
  weights <- as.data.frame(matrix(NA, nrow = length(grouplist), ncol = 3))
  colnames(weights) <- c("group", "size", "probs")
   
- # b) the weights of each group are calculated
+ # b) The weights of each group are calculated in this loop.
  for (i in seq_along(grouplist)) {
-  # The group for which the weight is calculated, is getting selected.
+  # Selecting group for which the weight is calculated.
   g <- grouplist[i]
 
-  # Weights are determined by calculating the size of the subgroup g and dividing it 
+  # The weights are determined by calculating the size of the subgroup g and dividing it 
   # by the total size of the unique observations in the panel dataset.
   weights[i, 1] <- g
   weights[i, 2] <- nrow(data[data$group == g & data$year == g, ])
@@ -259,8 +259,7 @@ for (g in grouplist) {
  }
  
  # c) The probabilities of each group are getting merged with the ATT(g,t). 
- # This dataset is playing a key role in the following section for the calculation 
- # of the Agg. ATT.
+ # This dataset is playing a key role for the calculating the Agg. ATE.
  attgt_probs_df <- merge(attgt.df, weights, by.x = "group" )
  
  # The index_post variable is a index, which contains the row of each ATT(g,t) 
@@ -270,9 +269,9 @@ for (g in grouplist) {
 ## 3.1 Simple Weighted Average of ATT(g,t) ----
 if (method == "simple_att") {
  # The simple-weighted average of ATT(g,t) is a measure to evaluate the overall
- # ATE of the treatment. Therefore, all the ATT(g,t) of all groups in the 
+ # ATE of the treated. Therefore, all the ATT(g,t) of all groups in the 
  # post-treatment period are weighted with the respective group weights. Then, 
- # all the weighted ATT(g,t) are summed up and the sum is divided by kappa. 
+ # all the weighted ATT(g,t) are summed up and this sum is divided by kappa. 
 
  # This line selects all the relevant ATT(g,t) in the post-treatment period.
  aggte_simple <- attgt_probs_df[index_post, ]
