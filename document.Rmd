@@ -45,7 +45,6 @@ library(data.table)
 library(DRDID)
 library(plm)
 library(lmtest)
-
 ```
 
 ## 3.1 Calculating the aggregated average treatment effects
@@ -89,9 +88,6 @@ calculating_agg_att <- function(data,
 # In this section, the arguments given to the function are re-defined in order
 # to allow a universal usage of the function and the basic variables needed for
 # the further procedure are defined.
-
-# The variables are re-defined and standardized in order to guarantee universal
-# application of the function.
 data_original <- data
 data_original <- data_original |>
   rename(year = !!sym(year_input),
