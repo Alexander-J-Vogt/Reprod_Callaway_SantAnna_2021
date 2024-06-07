@@ -489,7 +489,7 @@ calculating_agg_att <- function(data,
       }
       
       # In the last step, the "balanced" data frame of ATT(g,t) is obtained by 
-      # excluding the groups in groups_to_exclude().
+      # excluding the determined groups in groups_to_exclude().
       groups_to_exclude <- groups_to_exclude[!is.na(groups_to_exclude)]
       attgt_et_bal <- attgt_et[!attgt_et$group %in% groups_to_exclude,]
       
@@ -505,7 +505,7 @@ calculating_agg_att <- function(data,
         group_prob <- df$probs / sum(df$probs)
         att_et_bal[i, "time"]   <- eventime_time
         att_et_bal[i, "coef"]   <- round(sum(df$attgt * group_prob), 4)
-        }  
+      }  
       
       # Only the event study effects, which lay in the minimum requirement
       # of how long a group must have been observed. are shown.
@@ -524,7 +524,9 @@ calculating_agg_att <- function(data,
 }
 ```
 
-The function `calculate_att_se` is the final step of implementing the methodology of CS (2021). The outcome of the function is the partially and overall ATE of the choosen method and the corresponding standard errors, which are calculated by using the multiplier bootstrap proposed in CS (2021). Thereby, it is important to mention that the multiplier bootstrap in CS (2021) is used to bootstrap the influence function of an ATE, while in this term paper it used to calculate a distribution of the partial and ATT from which the distribution is calculated.
+## 3.2 Calculating the Standard Errors
+
+The function `calculate_att_se` is the final step of implementing the methodology of CS (2021). The outcome of the function is a list of the partially and overall Agg. ATE of the choosen method and the corresponding standard errors, which are calculated by using the multiplier bootstrap proposed in CS (2021). Thereby, it is important to mention that the multiplier bootstrap in CS (2021) is used to bootstrap the influence function of an ATE, while in this term paper it used to calculate a distribution of the partial and ATT from which the distribution is calculated.
 
 ```{r}
 calculate_att_se <- function(data = qwi,
@@ -765,7 +767,7 @@ calculate_various_specifications_west <-function(data) {
 }
 ```
 
-# 5. Application of Callaway & Sant'Anna (2021)
+# 4. Application of Callaway & Sant'Anna (2021)
 
 Callaway & Sant'Anna (2021) explore the effect of an increase in the minimum wage on teen employment in the United States. In the period between 2001 and 2007, several states increased their minimum wage above the federal minimum wage in different years, while the federal minimum wage stayed constant. This allows CS (2021) to exploit the variation on state-level with respect to minimum wage increases and enables them to calculate ATE. The groups are defined according to the year of the minimum wage increase and all states without any increase are belonging to the "never-treated" group.
 
@@ -807,33 +809,33 @@ results_midwest <- calculate_various_specifications(qwi_midwest)
 results_south   <- calculate_various_specifications(qwi_south)
 ```
 
-```{r paged.print=TRUE}
+```{r echo=FALSE, message=FALSE, paged.print=TRUE}
 print("(1) Full sample: Conditional ATE with Doubly-Robust estimators")
 print(results_total$c_results)
 
 ```
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 print("(2) Full sample: Unconditional ATE")
 print(results_total$u_results)
 ```
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 print("(3) Midwest Census Region: Conditional ATE")
 print(results_midwest$c_results)
 ```
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 print("(4) Midwest Census Region: Unconditional ATE")
 print(results_midwest$c_results)
 ```
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 print("(5) Soutern Census Region: Conditional ATE")
 print(results_south$c_results)
 ```
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 print("(6) Southern Census Region: Unconditional ATE")
 print(results_south$c_results)
 ```
