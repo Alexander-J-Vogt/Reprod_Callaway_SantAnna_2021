@@ -539,7 +539,7 @@ calculate_att_se <- function(data = qwi,
   # a binomial distribution is created for each iteration and is saved in
   # vector "bernoulli_variates". The vector has the same length as the unique
   # observation of the dataset. The probability used for the binomial
-  # distribution is the following term:
+  # distribution is the following term of CS (2021):
   kappa <- (sqrt(5) + 1) / 2
   p <- kappa / sqrt(5)
   n_row <- length(data_for_b$id)
@@ -561,7 +561,7 @@ calculate_att_se <- function(data = qwi,
                                balanced = balanced)
   
   # The results of the ATE in the current loop-iteration are saved here, and these
-  # variables contain the distribution of every partial and overall ATE after
+  # list contain the distribution of every partial and overall ATE after
   # the loop has come to its end.
   if (method != "simple_att")  b_res_partial[[i]] <- t(as.matrix(b_est$partial_att$coef))
    b_res_overall[[i]] <- round(b_est$overall_att, 4)
