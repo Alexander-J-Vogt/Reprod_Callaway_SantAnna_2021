@@ -524,9 +524,9 @@ calculating_agg_att <- function(data,
 }
 ```
 
-## 3.2 Calculating the Standard Errors
+## 3.2 Calculation of the Standard Errors
 
-The function `calculate_att_se` is the final step of implementing the methodology of CS (2021). The outcome of the function is a list of the partially and overall Agg. ATE of a choosen method and the corresponding standard errors. The standard errors are calculated with the multiplier bootstrap proposed in CS (2021). Thereby, it is important to mention that the multiplier bootstrap in CS (2021) is used to bootstrap the influence function of an ATE, while in this code implementation it used to calculate a distribution for each partial and overall ATT. This allows then to calculate the standard errors for each partial and overall ATT based on this distribution of ATT values.
+The function `calculate_att_se` is the final step of implementing the methodology of CS (2021). The outcome of the function is a list of the partially and overall Agg. ATE of a choosen method and the corresponding standard errors. The standard errors are calculated with the multiplier bootstrap procedure proposed in CS (2021). Thereby, it is important to mention that the multiplier bootstrap in CS (2021) is used to bootstrap the influence function of an ATE, while in this code implementation it used to calculate a distribution for each partial and overall ATT. This allows then to calculate the standard errors for each partial and overall ATT based on this distribution of ATT values.
 
 ```{r}
 calculate_att_se <- function(data = qwi,
@@ -540,16 +540,18 @@ calculate_att_se <- function(data = qwi,
                              method = "group_att",
                              balanced = FALSE) {
   
-  # These variables are redefined for universal usage in the function. 
-  data <- data
+  # The
   data_for_b <- data |>
     rename(id = !!sym(id_input)) |>
     as.data.frame()
-  method <- method
+  
   # The number of iteration is determined here.
   iter <- 10
+  
+  # 
   b_res_overall <- list()
   b_res_partial <- list()
+  
   # This loop is the implementation of the multiplier bootstrap. The core
   # difference to the standard bootstrapping is that there are us no resembling
   # but only a fraction of the overall total population size is used for
