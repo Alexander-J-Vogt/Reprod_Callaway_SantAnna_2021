@@ -247,7 +247,7 @@ for (g in grouplist) {
   
  # b) The weights of each group are calculated in this loop.
  for (i in seq_along(grouplist)) {
-  # Selecting the group for which the weight is calculated.
+  # Selecting the group for which the weight is calculated with the vector of unique groups
   g <- grouplist[i]
 
   weights[i, 1] <- g
@@ -257,8 +257,8 @@ for (g in grouplist) {
   weights[i, 3] <- weights[i, 2] / n_unique
  }
  
- # c) The probabilities of each group are getting merged with the ATT(g,t). 
- # This dataset is playing a key role for the calculating the Agg. ATE.
+ # c) The probabilities of each group are getting merged with the ATT(g,t) by groups. 
+ # This dataset is playing a key role for the calculation of the Agg. ATE.
  attgt_probs_df <- merge(attgt.df, weights, by.x = "group" )
  
  # The index_post variable is a index, which contains the row of each ATT(g,t) 
@@ -272,7 +272,8 @@ if (method == "simple_att") {
  # post-treatment period are weighted with the respective group weights. Then, 
  # all the weighted ATT(g,t) are summed up and this sum is than divided by kappa. 
 
- # This line selects all the relevant ATT(g,t) in the post-treatment period.
+ # This line selects all the relevant ATT(g,t) in the post-treatment period with 
+ # index_post.
  aggte_simple <- attgt_probs_df[index_post, ]
 
  # Kappa has the purpose to normalize the weights and is the sum of probabilities
@@ -290,7 +291,7 @@ if (method == "simple_att") {
 ## 3.2 Group-Time ATT(g,t) ----
 if (method == "group_specific_att") {
  # 1) Partially Agg. ATE
- # The group-specific ATE is of relevance for researchers if they want to
+ # The group-specific ATE is relevant for researchers if they want to
  # evaluate the heterogeneity of a policy with respect to treatment timing.
  
  # The first step is to select the ATT(g,t) of each group in the post-treatment
@@ -313,8 +314,8 @@ if (method == "group_specific_att") {
  # 2) Overall Agg. ATE
  # The overall ATE of the group-specific ATE is calculated by taking the sum of
  # the weighted partially Agg. ATE. This sum is divided by sum of all group
- # weights in order to normalize the overall Agg. ATE. The last step is equal to the 
- # kappa of the simple-weighted ATE.
+ # weights in order to normalize the overall Agg. ATE. Thus, the calculation
+ # follows the same logic as the one of simple-weighted ATE.
  agg_gte_results <- round(sum(gte_results$coef * weights$probs) / sum(weights$probs), 4)
     
  # This line saves the results.
@@ -343,7 +344,7 @@ if (method == "calendar_att") {
  
  # In this loop, the calendar effects for each post-treatment period is calculated.
  for (i in seq_along(calendar_timelist)) {
-  # First, the ATT(g,t) of the current period-iteration is selected 
+  # First, the ATT(g,t) of the current period-iteration is selected. 
   calendar_time <- calendar_timelist[i]
   df <- aggte_ct[aggte_ct$year == calendar_time,]
   # Secondly, the calendar time effects are calculated by weighting ATT(g,t) with the
