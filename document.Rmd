@@ -341,13 +341,11 @@ if (method == "calendar_att") {
  # calendar time effect is calculated for the year in which the first group
  # is treated.
    
- # Selecting the ATT(g,t) of each group in the post-treatment like in the
- # other steps before.
+ # Selecting the ATT(g,t) of each group in the post-treatment.
  aggte_ct <- attgt_probs_df[index_post,]
 
  # The calendar time effects are calculated by looping of all unique calendar
- # and, hence, the unique calendar times need to be determined. These are
- # all years, which are in the post-treatment period.
+ # and, hence, the unique calendar times need to be determined.
  calendar_timelist <- unique(aggte_ct$year)
     
  # Than, an empty data frame is created, in which the calendar time effects are
