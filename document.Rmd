@@ -327,27 +327,24 @@ if (method == "group_specific_att") {
 if (method == "calendar_att") {
  # 1) Partially Agg. ATE
  # Calendar time effects are of relevance if the question arises on how large
- # the ATE after a certain number of periods is (CS, 2021).
- # The calendar time effects are calculated by taking the sum of ATT(g,t) with
- # the corresponding weights by calendar time, e.g., by year 2006. The first
- # calendar time effect is calculated for the year in which the first group
- # is treated.
+ # the ATE after a certain number of periods is (CS, 2021). The calendar time 
+ # effects are calculated by taking the sum of ATT(g,t) of one year with the 
+ # corresponding weights of each group. This is done for each post-treatment period.
    
  # Selecting the ATT(g,t) of each group in the post-treatment.
  aggte_ct <- attgt_probs_df[index_post,]
 
- # The calendar time effects are calculated by looping of all unique calendar
- # and, hence, the unique calendar times need to be determined.
+ # The calendar time effects are calculated by looping over all unique calendar
+ # times and, hence, the unique calendar times need to be determined.
  calendar_timelist <- unique(aggte_ct$year)
     
  # Than, an empty data frame is created, in which the calendar time effects are save.
  cte_results <- as.data.frame(matrix(NA, nrow = length(calendar_timelist), ncol = 2))
  colnames(cte_results) <- c("time", "coef")
  
- # In this loop the calendar effects for each calendar time are calculated.
+ # In this loop, the calendar effects for each calendar time are calculated.
  for (i in seq_along(calendar_timelist)) {
-  # Selecting the post-treatment year for which the calendar time effects 
-  # is calculated in the current iteration.
+  # First, all ATT(g,t) of the current calendar-time-iteration is selected 
   calendar_time <- calendar_timelist[i]
   df <- aggte_ct[aggte_ct$year == calendar_time,]
   # Calculating the calendar time effects by weighting ATT(g,t) with the
