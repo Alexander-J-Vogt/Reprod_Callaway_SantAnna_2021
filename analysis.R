@@ -24,25 +24,7 @@ library(lmtest)
 qwi <- read_rds(paste0("./", "01_Data/cs_data.RDS"))
 # dta <- read_dta(paste0("./", "01_Data/mw_data_ch2.dta"))
 qwi <- data.table(qwi)
-# qwi <- qwi |> 
-#   relocate(group, treated, .after =county_id) |>
-#   relocate(lnEmp, .after = date_y) |>
-#   arrange(county_id, date_y) |>
-#   mutate(lwhite_pop = ifelse(white_pop_2000_perc > 0, log(white_pop_2000_perc), 0),
-#          lpoverty = ifelse(poverty_allages_1997_perc > 0, log(poverty_allages_1997_perc), 0),
-#          lpop_1000s = ifelse(pop_2000_nr_1000s > 0, log(pop_2000_nr_1000s), 0), 
-#          lpop = ifelse(pop_nr_2000 > 0, log(pop_nr_2000), 0),
-#          lmedian_income_1000s = ifelse(median_income_1997_1000s >0 ,log(median_income_1997_1000s), 0),
-#          lmeduab_income = ifelse(Median_Inc_1997_USD > 0, log(Median_Inc_1997_USD), 0),
-#          leduc = ifelse(HS_1990_perc > 0, log(HS_1990_perc), 0)
-#          ) |>
-#   select(-c("treat_g2004", "treat_g2006", "treat_g2007", "state_name",
-#             "Emp", "Median_Inc_1997_USD", "pop_nr_2000", "nr_white_2000")) |>
-#   mutate(post_treat = ifelse(date_y >= 2004, 1, 0)) |>
-#   mutate(post_treat = ifelse(date_y >= 2006, 1, post_treat)) |>
-#   mutate(post_treat = ifelse(date_y >= 2007, 1, post_treat))
-#   
-# is.pbalanced(qwi)
+
 ################################################################################
 ## ---- Start with the replication of the group-time average treatment effect
 ################################################################################
@@ -524,19 +506,7 @@ est <- calculating_agg_att(data = qwi,
                            method = "group_specific_att",
                            balanced = 1)
 
-# 
-# est <- calculating_agg_att(data = qwi,
-#                              year_input = "date_y",
-#                              group_input = "group",
-#                              outcome_input = "lnEmp",
-#                              id_input = "county_id",
-#                              treatment = treated,
-#                              formula = spec_formula,
-#                              unconditional_ind = FALSE,
-#                              method = "group_specific_att",
-#                              balanced = 1)
-# 
-# est 
+
   
 calculate_att_se <- function(data = qwi,
                                  year_input = "date_y",
@@ -617,21 +587,8 @@ calculate_att_se <- function(data = qwi,
   return(est)
 }
 
-          # test <- calculate_att_se(data = qwi_west,
-          #                        year_input = "date_y",
-          #                        group_input = "group",
-          #                        outcome_input = "lnEmp",
-          #                        id_input = "county_id",
-          #                        treatment = treated,
-          #                        formula = spec_formula_log,
-          #                        unconditional_ind = FALSE,
-          #                        method = "calendar_att",
-          #                        balanced = 1)
-# # 
-# # calculating_agg_att()     
 
-
-                  
+# Automate all different calculations within in the calculate_att_se function                  
 calculate_various_specifications <-  function(data) {
                 
   method_opt <- c("simple_att", "group_specific_att", "calendar_att", 
