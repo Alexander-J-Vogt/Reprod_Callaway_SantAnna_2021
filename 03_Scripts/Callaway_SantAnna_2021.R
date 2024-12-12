@@ -167,7 +167,7 @@ qwi_matched <- qwi_matched |>
 
 # Transform dataset into the equivalent dataset structure as in Callaway & Sant'Anna (2021)
 qwi <-  qwi_matched |>
-  select(-c("state", "county", "region", "year", "quarter")) |>
+  select(-c("state", "county", "year", "quarter")) |>
   filter(str_detect(date_q, regex("-01-01", ignore_case = TRUE))) |>
   mutate(date_y = as.double(str_sub(date_q, 1, 4)),
          county_id = as.double(county_id),
@@ -175,13 +175,29 @@ qwi <-  qwi_matched |>
   relocate(date_y, .after = county_id) |>
   select(-c("date_q"))
 
-
+qwi <- qwi |> 
+  relocate(group, treated, .after =county_id) |>
+  relocate(lnEmp, .after = date_y) |>
+  arrange(county_id, date_y) |>
+  mutate(lwhite_pop = log(white_pop_2000_perc),
+         lpoverty = log(poverty_allages_1997_perc),
+         lpop_1000s = log(pop_2000_nr_1000s),
+         lpop = log(pop_nr_2000),
+         lmedian_income_1000s = log(median_income_1997_1000s),
+         lmeduab_income = log(Median_Inc_1997_USD),
+         leduc = log(HS_1990_perc)
+  ) |>
+  select(-c("treat_g2004", "treat_g2006", "treat_g2007", "state_name",
+            "Emp", "Median_Inc_1997_USD", "pop_nr_2000", "nr_white_2000")) |>
+  mutate(post_treat = ifelse(date_y >= 2004, 1, 0)) |>
+  mutate(post_treat = ifelse(date_y >= 2006, 1, post_treat)) |>
+  mutate(post_treat = ifelse(date_y >= 2007, 1, post_treat))
 
 # Check if data is balacnced: Yes, it is.
 is.pbalanced(qwi)
 
 # Save as RDS
-saveRDS(qwi, paste0("./", data_path, "/", "qwi_matched.RDS"))
+saveRDS(qwi, paste0("./", data_path, "/", "cs_.RDS"))
 
 
 # Check if all counties appear regularly over time
