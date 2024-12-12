@@ -351,9 +351,9 @@ calculating_agg_att <- function(data,
   } # End of group-specific effects if-clause
 
 
-## 4.3 Calendar Time Effects ---------------------------------------------------
 # Gets activated if method is equal to calendar_att
   if (method == "calendar_att") {
+## 4.3 Calendar Time Effects ---------------------------------------------------
   
     # Select for each group the ATT(g,t)-effects of the post-treatment period for
     # in order to calculate heterogenous treatment effects w.r.t. to calendar time
@@ -616,23 +616,20 @@ calculate_att_se <- function(data = qwi,
   
   return(est)
 }
-  
-          test <- calculate_att_se(data = qwi_west,
-                                 year_input = "date_y",
-                                 group_input = "group",
-                                 outcome_input = "lnEmp",
-                                 id_input = "county_id",
-                                 treatment = treated,
-                                 formula = spec_formula_log,
-                                 unconditional_ind = FALSE,
-                                 method = "calendar_att",
-                                 balanced = 1)
-# 
-# calculating_agg_att()     
 
-qwi_west <- qwi |> filter(region == "West")
-qwi_midwest <- qwi |> filter(region == "Midwest")
-qwi_south <- qwi |> filter(region == "South")
+          # test <- calculate_att_se(data = qwi_west,
+          #                        year_input = "date_y",
+          #                        group_input = "group",
+          #                        outcome_input = "lnEmp",
+          #                        id_input = "county_id",
+          #                        treatment = treated,
+          #                        formula = spec_formula_log,
+          #                        unconditional_ind = FALSE,
+          #                        method = "calendar_att",
+          #                        balanced = 1)
+# # 
+# # calculating_agg_att()     
+
 
                   
 calculate_various_specifications <-  function(data) {
@@ -708,29 +705,16 @@ calculate_various_specifications <-  function(data) {
    
 }
 
-start_time <- Sys.time()
+# Create Subset by U.S. Census Division
+qwi_west <- qwi |> filter(region == "West")
+qwi_midwest <- qwi |> filter(region == "Midwest")
+qwi_south <- qwi |> filter(region == "South")
+
+# Calculate Results by U.S. Census Division
 results_total   <- calculate_various_specifications(qwi)
 results_west    <- calculate_various_specifications(qwi_west)
 results_midwest <- calculate_various_specifications(qwi_midwest)
 results_south   <- calculate_various_specifications(qwi_south)
-
-df <- lapply(results_total$cond_results, function(x) as.data.frame(x, stringsAsFactors = FALSE))
-
-lapply(results_west, as.data.frame)
-
-results_west$cond_results$simple
-
-library(gridExtra)
-library(grid)
-
-
-
-end_time <- Sys.time()
-time.taken <- round(end_time - start_time,2)
-
-
-  end_time <- Sys.time()
-  time.taken <- round(end_time - start_time,2)  
 
 
 cond_twfe <- plm(lnEmp ~ -1 + post_treat + treated + post_treat * treated + 
