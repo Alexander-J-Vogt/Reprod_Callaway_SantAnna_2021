@@ -4,4 +4,4 @@ The Econometrics Using R seminar focused on replicating the Difference-in-Differ
 
 - cs_reproduction.R: Replication Code
 - cs_term_paper.RMD: Term Paper with explanation of the R Code in R Markdown
-- -cs_term_paper.pdf: Pdf Version of the Term Paper
+- cs_term_paper.pdf: Pdf Version of the Term Paper
